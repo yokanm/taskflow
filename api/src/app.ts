@@ -1,6 +1,7 @@
-import express from 'express'
-import helmet from 'helmet'
-import cors from 'cors'
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
 
 
 export function serverApp() {
@@ -16,6 +17,7 @@ app.use(
 );
 
 app.use(express.json({ limit: "10mb" }));
+app.use(cookieParser())
 app.use(express.urlencoded({ extended: true }));
 
 app.get('/api/v1/', (_req, res) => {

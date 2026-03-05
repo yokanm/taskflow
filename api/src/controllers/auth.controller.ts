@@ -32,6 +32,10 @@ export const register = async (req: Request, res: Response) => {
         id: newUser.id,
         name: newUser.name,
         email: newUser.email,
+        avatarColor: newUser.avatarColor,
+        accentTheme: newUser.accentTheme,
+        darkMode: newUser.darkMode,
+        createdAt: newUser.createdAt,
       },
     });
   } catch (error) {
@@ -72,41 +76,35 @@ export const login = async (req: Request, res: Response) => {
   
 }
 
-const tokenRefresh = async (req: Request, res: Response) => {
+export const tokenRefresh = async (req: Request, res: Response) => {
   try {
-    const { refreshToken } = req.body
-    
-    if (!refreshToken) return res.status(400).json({ message: 'Refresh token not found' })
-    
-    // Verify refresh token
-        const decoded = verifyRefreshToken(refreshToken);
-        
-    // Find user and verify refresh token matches
-        const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
-        if (!user) 
-            return res.status(401).json({
-                error: 'Invalid refresh token'
-            });
-        
-    
-    // Generate new access token
-        const newAccessToken = signAccessToken(user.id); // ✅ was incorrectly signRefreshToken before
-        signRefreshToken(user.id, res);                  // rotate the refresh token cookie
+    const refreshToken = req.cookies['refreshToken'] as string | undefined; // ✅ read from cookie
+
+    if (!refreshToken) {
+      return res.status(400).json({ message: 'Refresh token not found' });
+    }
+
+    const decoded = verifyRefreshToken(refreshToken); // throws if invalid/expired
+
+    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid refresh token' });
+    }
+
+    const newAccessToken = signAccessToken(user.id);
+    signRefreshToken(user.id, res); // rotate the refresh token cookie
 
     return res.status(200).json({
       message: 'Token refreshed',
       accessToken: newAccessToken,
     });
-    
   } catch (error) {
     console.error('Refresh token error:', error);
-    res.status(500).json({
-      error: 'Something went wrong'
-    })
+    return res.status(401).json({ message: 'Invalid or expired refresh token' }); // ✅ 401 not 500
   }
-}
+};
 
-export const logout = async (res: Response) => {
+export const logout = async (req:Request, res: Response) => {
   try {
     res.clearCookie('refreshToken', { // ✅ matches the cookie name set in signRefreshToken
       httpOnly: true,
