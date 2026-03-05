@@ -6,9 +6,9 @@ import { registerSchema, loginSchema } from '../schemas';
 
 const router = Router();
 
-router.post('/register', validate(registerSchema), register);
-router.post('/login',    validate(loginSchema),    login);
-router.post('/refresh',                            tokenRefresh);
-router.post('/logout',   authMiddleware,            logout);
+router.post('/api/v1/register', validate(registerSchema), register);
+router.post('/api/v1/login',    validate(loginSchema),    login);
+router.post('/api/v1/refresh',                            tokenRefresh);
+router.post('/api/v1/logout',   authMiddleware,            logout);
 
 export default router;

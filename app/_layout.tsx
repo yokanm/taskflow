@@ -1,24 +1,55 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
+import React, { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { ThemeProvider, useAppTheme } from '../context/ThemeContext';
+import { useAuthStore } from '@/store/auth.store';
+import { authApi } from '../services/api';
+import type { User } from '@/types';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading, setAuth, setLoading } = useAuthStore();
+  const router = useRouter();
+  const segments = useSegments();
+  const t = useAppTheme();
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+  // Attempt silent re-auth on mount via cookie-based refresh
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await authApi.me();
+        const payload = data as { user: User; accessToken: string };
+        setAuth(payload.user, payload.accessToken);
+      } catch {
+        setLoading(false);
+      }
+    })();
+  }, [setAuth, setLoading]);
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  useEffect(() => {
+    if (isLoading) return;
+    const inAuth = segments[0] === '(auth)';
+    if (!isAuthenticated && !inAuth) router.replace('/(auth)');
+    if (isAuthenticated && inAuth) router.replace('/(tabs)');
+  }, [isAuthenticated, isLoading, segments, router]);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
+    <>
+      <StatusBar style={t.isDark ? 'light' : 'dark'} />
+      {children}
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <AuthGuard>
+        <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+      </AuthGuard>
     </ThemeProvider>
   );
 }

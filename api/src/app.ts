@@ -2,6 +2,9 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import authRouter from './routes/auth.routes.ts';
+import tasksRouter from './routes/task.routes.ts';
+import projectRouter from './routes/project.routes.ts';
 
 
 export function serverApp() {
@@ -11,7 +14,7 @@ app.use(helmet());
 
 app.use(
   cors({
-    // origin: process.env.CLIENT_URL,
+    origin: process.env['CLIENT_URL'],
     credentials: true,
   })
 );
@@ -21,9 +24,14 @@ app.use(cookieParser())
 app.use(express.urlencoded({ extended: true }));
 
 app.get('/api/v1/', (_req, res) => {
-    res.status(200).json({ message: 'API is running' });
+    res.status(200).json({ message: 'API is running in v2' });
   });
-    return app;
+app.use(authRouter);
+app.use(tasksRouter);
+app.use(projectRouter);
+
+
+return app;
 }
 
 
