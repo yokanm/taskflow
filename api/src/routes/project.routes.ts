@@ -5,18 +5,19 @@ import {
   createProject,
   updateProject,
   deleteProject,
-} from '../controllers/project.controller'; // ✅ named exports
-import { authMiddleware } from '../middleware/auth.middleware';
-import { validate } from '../middleware/validate.middleware';
-import { createProjectSchema, updateProjectSchema } from '../schemas';
+} from '../controllers/project.controller.ts';
+import { authMiddleware } from '../middleware/auth.middleware.ts';
+import { validate } from '../middleware/validate.middleware.ts';
+import { createProjectSchema, updateProjectSchema } from '../schemas/index.ts';
 
 const router = Router();
 router.use(authMiddleware);
 
-router.get('/',      listProjects);
-router.get('/:id',   getProject);
-router.post('/',     validate(createProjectSchema), createProject);
-router.patch('/:id', validate(updateProjectSchema), updateProject);
+// Mounted under /api/v1/projects in app.ts
+router.get('/',       listProjects);
+router.post('/',      validate(createProjectSchema), createProject);
+router.get('/:id',    getProject);
+router.patch('/:id',  validate(updateProjectSchema), updateProject);
 router.delete('/:id', deleteProject);
 
 export default router;

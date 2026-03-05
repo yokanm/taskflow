@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { prisma } from '../lib/db';
+import { prisma } from '../lib/db.ts';
 
 export interface AuthRequest extends Request {
   userId?: string;

@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
-import { prisma } from '../lib/db';
-import type { Priority, TaskStatus } from '../../generated/prisma/client';
+import { prisma } from '../lib/db.ts';
+import type { Priority, TaskStatus } from '../../generated/prisma/client.ts';
 
 export interface AuthRequest extends Request {
   userId?: string;

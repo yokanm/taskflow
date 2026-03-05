@@ -1,6 +1,6 @@
-import { prisma } from '../lib/db';
+import { prisma } from '../lib/db.ts';
 import bcrypt from 'bcrypt';
-import { saltRound, signAccessToken, signRefreshToken, verifyRefreshToken } from '../lib';
+import { saltRound, signAccessToken, signRefreshToken, verifyRefreshToken } from '../lib/index.ts';
 import type { Request, Response } from 'express';
 
 interface Auth {

@@ -1,14 +1,14 @@
 import { Router } from 'express';
-import { register, login, tokenRefresh, logout } from '../controllers/auth.controller'; // ✅ named exports
-import { authMiddleware } from '../middleware/auth.middleware';
-import { validate } from '../middleware/validate.middleware';
-import { registerSchema, loginSchema } from '../schemas';
+import { register, login, tokenRefresh, logout } from '../controllers/auth.controller.ts'; // ✅ named exports
+import { authMiddleware } from '../middleware/auth.middleware.ts';
+import { validate } from '../middleware/validate.middleware.ts';
+import { registerSchema, loginSchema } from '../schemas/index.ts';
 
 const router = Router();
 
-router.post('/api/v1/register', validate(registerSchema), register);
-router.post('/api/v1/login',    validate(loginSchema),    login);
-router.post('/api/v1/refresh',                            tokenRefresh);
-router.post('/api/v1/logout',   authMiddleware,            logout);
+router.post('/auth/register', validate(registerSchema), register);
+router.post('/auth/login',    validate(loginSchema),    login);
+router.post('/auth/refresh',                            tokenRefresh);
+router.post('/auth/logout',   authMiddleware,            logout);
 
 export default router;
