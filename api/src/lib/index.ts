@@ -1,32 +1,28 @@
 import jwt from 'jsonwebtoken';
 import type { Response } from 'express';
-
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
-
-if (!JWT_SECRET) throw new Error('JWT_SECRET is not defined in environment variables');
-if (!JWT_REFRESH_SECRET) throw new Error('JWT_REFRESH_SECRET is not defined in environment variables');
+import { config } from '../config';
 
 export const saltRound = 10;
 
 export const signAccessToken = (userId: string): string => {
-    const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '15m' });
-    return token;
+  return jwt.sign({ userId }, config.jwt.secret, {
+    expiresIn: config.jwt.accessExpiresIn,
+  });
 };
 
-export const signRefreshToken = (userId: string, res: Response): string => {
-  const refreshToken = jwt.sign({ userId }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
+export const signRefreshToken = (userId: string, res: Response): void => {
+  const refreshToken = jwt.sign({ userId }, config.jwt.refreshSecret, {
+    expiresIn: config.jwt.refreshExpiresIn,
+  });
 
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
-    // secure: process.env.NODE_ENV === 'production',
+    secure: config.nodeEnv === 'production',
     sameSite: 'strict',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days — matches JWT expiry
+    maxAge: config.jwt.refreshCookieMaxAge, // 7 days — matches JWT expiry
   });
-
-  return refreshToken;
 };
 
 export const verifyRefreshToken = (token: string): { userId: string } => {
-  return jwt.verify(token, JWT_REFRESH_SECRET) as { userId: string };
+  return jwt.verify(token, config.jwt.refreshSecret) as { userId: string };
 };

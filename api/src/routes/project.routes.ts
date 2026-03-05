@@ -1,5 +1,11 @@
 import { Router } from 'express';
-import { projectController } from '../controllers/project.controller';
+import {
+  listProjects,
+  getProject,
+  createProject,
+  updateProject,
+  deleteProject,
+} from '../controllers/project.controller'; // ✅ named exports
 import { authMiddleware } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { createProjectSchema, updateProjectSchema } from '../schemas';
@@ -7,10 +13,10 @@ import { createProjectSchema, updateProjectSchema } from '../schemas';
 const router = Router();
 router.use(authMiddleware);
 
-router.get('/',         projectController.list);
-router.get('/:id',      projectController.get);
-router.post('/',    validate(createProjectSchema), projectController.create);
-router.patch('/:id', validate(updateProjectSchema), projectController.update);
-router.delete('/:id',   projectController.delete);
+router.get('/',      listProjects);
+router.get('/:id',   getProject);
+router.post('/',     validate(createProjectSchema), createProject);
+router.patch('/:id', validate(updateProjectSchema), updateProject);
+router.delete('/:id', deleteProject);
 
 export default router;
