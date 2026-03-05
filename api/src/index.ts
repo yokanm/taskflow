@@ -3,16 +3,16 @@ import { connectDb } from './lib/db.ts';
 
 const PORT = 3000;
 const startServer = async () => {
-try {
+  try {
     await connectDb();
     const app = serverApp();
 
     app.listen(PORT, () => {
-    console.log(`Running on Port ${PORT}`);
+      console.log(`Running on Port ${PORT}`);
     });
-} catch (error) {
+  } catch (error) {
     console.error('Error starting server:', error);
-    }
+  }
 };
 
 startServer();

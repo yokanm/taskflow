@@ -1,4 +1,5 @@
 {
+  
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
     // File Layout
@@ -8,11 +9,9 @@
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
     "target": "ES2022",
-    "module": "ESNext",
+    "module": "es2015",
     "moduleResolution": "bundler",
-    "lib": [
-      "ES2022"
-    ],
+    "lib": ["ES2022"],
 
     // Other Outputs
     "sourceMap": true,
@@ -41,9 +40,9 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
-    "moduleDetection": "force",
-    "skipLibCheck": true,
+    // "moduleDetection": "force",
+    "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules","dist","prisma, generated"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/lib/db.ts"],
+  "exclude": ["node_modules", "dist", "prisma, generated"]
 }
