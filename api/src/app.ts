@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import authRouter from './routes/auth.routes.ts';
 import tasksRouter from './routes/task.routes.ts';
 import projectRouter from './routes/project.routes.ts';
+import userRouter from './routes/user.routes.ts';
 
 export function serverApp() {
   const app = express();
@@ -21,10 +22,10 @@ export function serverApp() {
     res.status(200).json({ message: 'API is running in v1' });
   });
 
-  // Routers mounted with their base paths
   app.use('/api/v1', authRouter);
   app.use('/api/v1/tasks', tasksRouter);
   app.use('/api/v1/projects', projectRouter);
+  app.use('/api/v1/users', userRouter);
 
   return app;
 }
