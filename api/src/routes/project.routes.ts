@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import {
-  listProjects,
-  getProject,
   createProject,
-  updateProject,
   deleteProject,
+  getProject,
+  listProjects,
+  updateProject,
 } from '../controllers/project.controller.ts';
 import { authMiddleware } from '../middleware/auth.middleware.ts';
 import { validate } from '../middleware/validate.middleware.ts';
@@ -14,10 +14,10 @@ const router = Router();
 router.use(authMiddleware);
 
 // Mounted under /api/v1/projects in app.ts
-router.get('/',       listProjects);
-router.post('/',      validate(createProjectSchema), createProject);
-router.get('/:id',    getProject);
-router.patch('/:id',  validate(updateProjectSchema), updateProject);
+router.get('/', listProjects);
+router.post('/', validate(createProjectSchema), createProject);
+router.get('/:id', getProject);
+router.patch('/:id', validate(updateProjectSchema), updateProject);
 router.delete('/:id', deleteProject);
 
 export default router;

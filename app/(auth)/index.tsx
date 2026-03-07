@@ -1,98 +1,106 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+/**
+ * @file app/(auth)/index.tsx
+ * @description Splash / Onboarding screen — the first screen new users see.
+ * Shows the app branding and two CTAs: Sign In and Create Account.
+ */
+
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { useAppTheme } from '@/context/ThemeContext';
 
-// const { width } = Dimensions.get('window');
-
-const FEATURES = [
-  { icon: '✓', label: 'Smart Tasks' },
-  { icon: '⊞', label: 'Projects' },
-  { icon: '🔔', label: 'Reminders' },
-];
+const { width } = Dimensions.get('window');
 
 export default function Onboarding() {
+  const t      = useAppTheme();
   const router = useRouter();
-  const scale = useSharedValue(1);
 
-  const handleGetStarted = () => {
-    scale.value = withSpring(0.97, {}, () => { scale.value = withSpring(1); });
-    router.push('/(auth)/register');
-  };
+  // Entrance animations
+  const logoAnim   = useRef(new Animated.Value(0)).current;
+  const textAnim   = useRef(new Animated.Value(0)).current;
+  const buttonAnim = useRef(new Animated.Value(0)).current;
 
-  const logoAnim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  useEffect(() => {
+    Animated.stagger(120, [
+      Animated.spring(logoAnim,   { toValue: 1, useNativeDriver: true, tension: 60, friction: 8 }),
+      Animated.timing(textAnim,   { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(buttonAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+    ]).start();
+  }, [logoAnim, textAnim, buttonAnim]);
 
   return (
-    <View style={styles.root}>
-      {/* Orbs */}
-      <View style={styles.orb1} />
-      <View style={styles.orb2} />
-      <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}>
+      {/* Background orbs */}
+      <View style={[styles.orb1, { backgroundColor: t.accent + '22' }]} />
+      <View style={[styles.orb2, { backgroundColor: t.accentLight + '44' }]} />
+
+      <View style={styles.container}>
         {/* Logo */}
-        <Animated.View style={[styles.center, logoAnim]}>
-          <View style={styles.logoWrap}>
-            <Text style={styles.logoIcon}>✓</Text>
+        <Animated.View style={[
+          styles.logoWrap,
+          {
+            opacity:   logoAnim,
+            transform: [{ scale: logoAnim }],
+          },
+        ]}>
+          <View style={[styles.logoBox, { backgroundColor: t.accent }]}>
+            <Text style={styles.logoText}>✓</Text>
           </View>
-          <Text style={styles.title}>TaskFlow</Text>
-          <Text style={styles.sub}>Organize. Focus. Achieve.</Text>
+          <Text style={[styles.appName, { color: t.textPrimary }]}>TaskFlow</Text>
+          <Text style={[styles.tagline, { color: t.textSecondary }]}>
+            Get things done, beautifully.
+          </Text>
+        </Animated.View>
 
-          {/* Feature icons */}
-          <View style={styles.features}>
-            {FEATURES.map((f) => (
-              <View key={f.label} style={styles.featureItem}>
-                <View style={styles.featureIcon}><Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.7)' }}>{f.icon}</Text></View>
-                <Text style={styles.featureLabel}>{f.label}</Text>
-              </View>
-            ))}
-          </View>
+        {/* Feature pills */}
+        <Animated.View style={[styles.pills, { opacity: textAnim }]}>
+          {['📋 Smart tasks', '📁 Projects', '📊 Progress tracking'].map((f) => (
+            <View key={f} style={[styles.pill, { backgroundColor: t.surface2, borderColor: t.border }]}>
+              <Text style={{ fontSize: 13, color: t.textSecondary }}>{f}</Text>
+            </View>
+          ))}
+        </Animated.View>
 
-          {/* Dots */}
-          <View style={styles.dots}>
-            <View style={styles.dotActive} />
-            <View style={styles.dotInactive} />
-            <View style={styles.dotInactive} />
-          </View>
-
-          {/* CTAs */}
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleGetStarted} activeOpacity={0.85}>
+        {/* CTA buttons */}
+        <Animated.View style={[styles.buttons, { opacity: buttonAnim }]}>
+          <TouchableOpacity
+            style={[styles.primaryBtn, { backgroundColor: t.accent }]}
+            onPress={() => router.push('/(auth)/register')}
+            activeOpacity={0.85}
+          >
             <Text style={styles.primaryBtnText}>Get Started Free</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.push('/(auth)/login')} activeOpacity={0.7}>
-            <Text style={styles.secondaryBtnText}>Sign In</Text>
+
+          <TouchableOpacity
+            style={[styles.secondaryBtn, { borderColor: t.border }]}
+            onPress={() => router.push('/(auth)/login')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.secondaryBtnText, { color: t.textPrimary }]}>
+              I already have an account
+            </Text>
           </TouchableOpacity>
         </Animated.View>
-      </SafeAreaView>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0F0F1A' },
-  orb1: { position: 'absolute', width: 300, height: 300, borderRadius: 150, top: -80, left: -60,
-    backgroundColor: 'rgba(108,99,255,0.25)', opacity: 0.6 },
-  orb2: { position: 'absolute', width: 200, height: 200, borderRadius: 100, bottom: 120, right: -40,
-    backgroundColor: 'rgba(236,72,153,0.2)', opacity: 0.6 },
-  safe: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingBottom: 40 },
-  logoWrap: { width: 80, height: 80, borderRadius: 24, backgroundColor: '#6C63FF', alignItems: 'center',
-    justifyContent: 'center', marginBottom: 24,
-    shadowColor: 'rgba(108,99,255,0.5)', shadowOffset: { width: 0, height: 16 }, shadowOpacity: 1, shadowRadius: 32, elevation: 12 },
-  logoIcon: { fontSize: 36, color: 'white', fontWeight: '700' },
-  title: { fontSize: 36, fontWeight: '700', color: 'white', letterSpacing: -1.5, marginBottom: 8 },
-  sub: { fontSize: 16, color: 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 24, marginBottom: 36 },
-  features: { flexDirection: 'row', gap: 20, marginBottom: 36 },
-  featureItem: { alignItems: 'center', gap: 8 },
-  featureIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  featureLabel: { fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: '500' },
-  dots: { flexDirection: 'row', gap: 6, marginBottom: 36 },
-  dotActive: { width: 20, height: 6, borderRadius: 3, backgroundColor: '#6C63FF' },
-  dotInactive: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.2)' },
-  primaryBtn: { width: '100%', backgroundColor: '#6C63FF', paddingVertical: 16, borderRadius: 12,
-    alignItems: 'center', marginBottom: 12,
-    shadowColor: 'rgba(108,99,255,0.5)', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 1, shadowRadius: 24, elevation: 8 },
-  primaryBtnText: { fontSize: 16, fontWeight: '700', color: 'white' },
-  secondaryBtn: { width: '100%', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  secondaryBtnText: { fontSize: 15, fontWeight: '500', color: 'rgba(255,255,255,0.7)' },
+  orb1:          { position: 'absolute', width: 300, height: 300, borderRadius: 150, top: -80,  right: -80  },
+  orb2:          { position: 'absolute', width: 200, height: 200, borderRadius: 100, bottom: 60, left: -60  },
+  container:     { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 32 },
+  logoWrap:      { alignItems: 'center', gap: 14 },
+  logoBox:       { width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center', shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.4, shadowRadius: 24, elevation: 12 },
+  logoText:      { fontSize: 36, color: 'white', fontWeight: '700' },
+  appName:       { fontSize: 36, fontWeight: '700', letterSpacing: -1.5 },
+  tagline:       { fontSize: 15, textAlign: 'center' },
+  pills:         { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
+  pill:          { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 100, borderWidth: 1 },
+  buttons:       { width: '100%', gap: 12 },
+  primaryBtn:    { paddingVertical: 16, borderRadius: 14, alignItems: 'center', shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 8 },
+  primaryBtnText:  { color: 'white', fontSize: 16, fontWeight: '700' },
+  secondaryBtn:    { paddingVertical: 15, borderRadius: 14, alignItems: 'center', borderWidth: 1.5 },
+  secondaryBtnText:{ fontSize: 15, fontWeight: '600' },
 });

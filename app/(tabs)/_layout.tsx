@@ -1,56 +1,116 @@
-import React from 'react';
-import { Tabs } from 'expo-router';
-import { View, Text, Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppTheme } from '@/context/ThemeContext';
-import * as Haptics from 'expo-haptics';
+/**
+ * @file app/(tabs)/_layout.tsx
+ * @description Bottom tab bar layout for the main app screens.
+ * Uses Expo Router's Tabs component with custom tab bar styling.
+ */
 
-function TabIcon({ focused, label, icon }: { focused: boolean; label: string; icon: string }) {
-  const t = useAppTheme();
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { useAppTheme } from '@/context/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// ─── Tab icons ────────────────────────────────────────────────────────────────
+
+const TAB_ICONS: Record<string, { active: string; inactive: string }> = {
+  index:    { active: '⊞', inactive: '⊟' },
+  tasks:    { active: '✓', inactive: '☐' },
+  projects: { active: '◈', inactive: '◇' },
+  profile:  { active: '●', inactive: '○' },
+};
+
+const TAB_LABELS: Record<string, string> = {
+  index:    'Home',
+  tasks:    'Tasks',
+  projects: 'Projects',
+  profile:  'Profile',
+};
+
+// ─── Custom tab bar ───────────────────────────────────────────────────────────
+
+function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const t       = useAppTheme();
+  const insets  = useSafeAreaInsets();
+
   return (
-    <View style={{ alignItems: 'center', gap: 3 }}>
-      <View style={{ width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
-        backgroundColor: focused ? t.accentLight : 'transparent' }}>
-        <Text style={{ fontSize: 16, color: focused ? t.accent : t.textTertiary }}>{icon}</Text>
-      </View>
-      <Text style={{ fontSize: 10, fontWeight: focused ? '600' : '500',
-        color: focused ? t.accent : t.textTertiary }}>{label}</Text>
+    <View style={[
+      styles.tabBar,
+      {
+        backgroundColor:   t.surface,
+        borderTopColor:    t.border,
+        paddingBottom:     insets.bottom || 8,
+        shadowColor:       '#000',
+      },
+    ]}>
+      {state.routes.map((route, index) => {
+        const isFocused  = state.index === index;
+        const routeName  = route.name;
+        const icons      = TAB_ICONS[routeName] ?? { active: '●', inactive: '○' };
+        const label      = TAB_LABELS[routeName] ?? routeName;
+
+        const onPress = () => {
+          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+          if (!isFocused && !event.defaultPrevented) {
+            navigation.navigate(route.name);
+          }
+        };
+
+        return (
+          <TouchableOpacity
+            key={route.key}
+            onPress={onPress}
+            style={styles.tabItem}
+            activeOpacity={0.7}
+          >
+            {/* Active pill indicator */}
+            {isFocused ? (
+              <View style={[styles.pill, { backgroundColor: t.accentLight }]}>
+                <Text style={{ fontSize: 16, color: t.accent }}>{icons.active}</Text>
+              </View>
+            ) : (
+              <Text style={{ fontSize: 16, color: t.textTertiary }}>{icons.inactive}</Text>
+            )}
+            <Text style={[
+              styles.tabLabel,
+              { color: isFocused ? t.accent : t.textTertiary, fontWeight: isFocused ? '700' : '500' },
+            ]}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
 
+// ─── Layout ───────────────────────────────────────────────────────────────────
+
 export default function TabsLayout() {
-  const t = useAppTheme();
-  const insets = useSafeAreaInsets();
-
-  const tabBarStyle = {
-    backgroundColor: t.surface,
-    borderTopColor: t.border,
-    borderTopWidth: 1,
-    height: 60 + insets.bottom,
-    paddingBottom: insets.bottom,
-    paddingTop: 8,
-    elevation: 0,
-    shadowOpacity: 0,
-  };
-
-  const handlePress = () => {
-    if (Platform.OS === 'ios') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle,
-        tabBarShowLabel: false,
-      }}
-      screenListeners={{ tabPress: handlePress }}
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{ headerShown: false }}
     >
-      <Tabs.Screen name="index" options={{ tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="Home" icon="⌂" /> }} />
-      <Tabs.Screen name="tasks" options={{ tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="Tasks" icon="☑" /> }} />
-      <Tabs.Screen name="projects" options={{ tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="Projects" icon="⊞" /> }} />
-      <Tabs.Screen name="profile" options={{ tabBarIcon: ({ focused }) => <TabIcon focused={focused} label="Profile" icon="◉" /> }} />
+      <Tabs.Screen name="index"    options={{ title: 'Home'     }} />
+      <Tabs.Screen name="tasks"    options={{ title: 'Tasks'    }} />
+      <Tabs.Screen name="projects" options={{ title: 'Projects' }} />
+      <Tabs.Screen name="profile"  options={{ title: 'Profile'  }} />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar:   {
+    flexDirection:  'row',
+    borderTopWidth: 1,
+    paddingTop:     8,
+    shadowOffset:   { width: 0, height: -4 },
+    shadowOpacity:  0.06,
+    shadowRadius:   12,
+    elevation:      12,
+  },
+  tabItem:  { flex: 1, alignItems: 'center', gap: 3 },
+  pill:     { paddingHorizontal: 14, paddingVertical: 4, borderRadius: 100, alignItems: 'center', justifyContent: 'center' },
+  tabLabel: { fontSize: 10, letterSpacing: 0.3 },
+});
