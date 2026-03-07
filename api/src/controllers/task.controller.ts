@@ -12,6 +12,12 @@ const getParam = (req: AuthRequest, key: string): string | null => {
   return val;
 };
 
+const STATUS_CYCLE: Record<string, string> = {
+  'TODO':        'IN_PROGRESS',
+  'IN_PROGRESS': 'DONE',
+  'DONE':        'TODO',
+};
+
 export const list = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.userId) return res.status(401).json({ message: 'Unauthorized' });
@@ -21,9 +27,9 @@ export const list = async (req: AuthRequest, res: Response) => {
     const tasks = await prisma.task.findMany({
       where: {
         userId: req.userId,
-        ...(status ? { status: status as TaskStatus } : {}),
-        ...(priority ? { priority: priority as Priority } : {}),
-        ...(projectId ? { projectId: projectId as string } : {}),
+        ...(status    ? { status:    status    as TaskStatus } : {}),
+        ...(priority  ? { priority:  priority  as Priority   } : {}),
+        ...(projectId ? { projectId: projectId as string     } : {}),
       },
       include: { subTasks: true, project: true },
       orderBy: { createdAt: 'desc' },
@@ -43,7 +49,7 @@ export const get = async (req: AuthRequest, res: Response) => {
     if (!id) return res.status(400).json({ message: 'Invalid task ID' });
 
     const task = await prisma.task.findUnique({
-      where: { id, userId: req.userId }, // ✅ ownership at DB level
+      where: { id, userId: req.userId },
       include: { subTasks: true, project: true },
     });
 
@@ -66,11 +72,11 @@ export const create = async (req: AuthRequest, res: Response) => {
         title,
         description,
         priority,
-        dueDate: dueDate ? new Date(dueDate) : null, // ✅ null instead of undefined
-        userId: req.userId,
+        dueDate:   dueDate   ? new Date(dueDate) : null,
+        userId:    req.userId,
         projectId: projectId ?? null,
-    },
-    include: { subTasks: true, project: true },
+      },
+      include: { subTasks: true, project: true },
     });
 
     return res.status(201).json({ data: task, message: 'Task created' });
@@ -87,7 +93,7 @@ export const update = async (req: AuthRequest, res: Response) => {
     if (!id) return res.status(400).json({ message: 'Invalid task ID' });
 
     const existing = await prisma.task.findUnique({
-      where: { id, userId: req.userId }, // ✅ ownership at DB level
+      where: { id, userId: req.userId },
     });
     if (!existing) return res.status(404).json({ message: 'Task not found' });
 
@@ -96,12 +102,12 @@ export const update = async (req: AuthRequest, res: Response) => {
     const task = await prisma.task.update({
       where: { id },
       data: {
-        ...(title !== undefined ? { title } : {}),
-        ...(description !== undefined ? { description } : {}),
-        ...(priority !== undefined ? { priority } : {}),
-        ...(status !== undefined ? { status } : {}),
-        ...(dueDate !== undefined ? { dueDate: new Date(dueDate) } : {}),
-        ...(projectId !== undefined ? { projectId } : {}),
+        ...(title       !== undefined ? { title }                     : {}),
+        ...(description !== undefined ? { description }               : {}),
+        ...(priority    !== undefined ? { priority }                  : {}),
+        ...(status      !== undefined ? { status }                    : {}),
+        ...(dueDate     !== undefined ? { dueDate: new Date(dueDate) } : {}),
+        ...(projectId   !== undefined ? { projectId }                  : {}),
       },
       include: { subTasks: true, project: true },
     });
@@ -112,6 +118,9 @@ export const update = async (req: AuthRequest, res: Response) => {
   }
 };
 
+/**
+ * Cycles status: TODO → IN_PROGRESS → DONE → TODO
+ */
 export const toggle = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.userId) return res.status(401).json({ message: 'Unauthorized' });
@@ -120,13 +129,15 @@ export const toggle = async (req: AuthRequest, res: Response) => {
     if (!id) return res.status(400).json({ message: 'Invalid task ID' });
 
     const existing = await prisma.task.findUnique({
-      where: { id, userId: req.userId }, // ✅ ownership at DB level
+      where: { id, userId: req.userId },
     });
     if (!existing) return res.status(404).json({ message: 'Task not found' });
 
+    const nextStatus = (STATUS_CYCLE[existing.status] ?? 'TODO') as TaskStatus;
+
     const task = await prisma.task.update({
       where: { id },
-      data: { status: existing.status === 'DONE' ? 'TODO' : 'DONE' },
+      data:  { status: nextStatus },
       include: { subTasks: true },
     });
 
@@ -136,7 +147,7 @@ export const toggle = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const deleteTask = async (req: AuthRequest, res: Response) => { // ✅ renamed from delete
+export const deleteTask = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.userId) return res.status(401).json({ message: 'Unauthorized' });
 
@@ -144,7 +155,7 @@ export const deleteTask = async (req: AuthRequest, res: Response) => { // ✅ re
     if (!id) return res.status(400).json({ message: 'Invalid task ID' });
 
     const existing = await prisma.task.findUnique({
-      where: { id, userId: req.userId }, // ✅ ownership at DB level
+      where: { id, userId: req.userId },
     });
     if (!existing) return res.status(404).json({ message: 'Task not found' });
 
@@ -164,7 +175,7 @@ export const addSubtask = async (req: AuthRequest, res: Response) => {
     if (!id) return res.status(400).json({ message: 'Invalid task ID' });
 
     const task = await prisma.task.findUnique({
-      where: { id, userId: req.userId }, // ✅ ownership at DB level
+      where: { id, userId: req.userId },
     });
     if (!task) return res.status(404).json({ message: 'Task not found' });
 
@@ -185,7 +196,6 @@ export const toggleSubtask = async (req: AuthRequest, res: Response) => {
     const subId = getParam(req, 'subId');
     if (!subId) return res.status(400).json({ message: 'Invalid subtask ID' });
 
-    // ✅ verify subtask belongs to a task owned by this user
     const subTask = await prisma.subTask.findUnique({
       where: { id: subId },
       include: { task: true },
@@ -197,7 +207,7 @@ export const toggleSubtask = async (req: AuthRequest, res: Response) => {
 
     const updated = await prisma.subTask.update({
       where: { id: subId },
-      data: { done: !subTask.done },
+      data:  { done: !subTask.done },
     });
 
     return res.status(200).json({ data: updated, message: 'Subtask toggled' });

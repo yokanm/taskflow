@@ -1,23 +1,24 @@
 /**
  * @file store/auth.store.ts
  * @description Zustand store for authentication state.
- *
- * Holds the current user, access token, and loading flag.
- * The access token is kept in memory only (not persisted) — on app
- * restart, _layout.tsx calls authApi.refresh() to get a new token from
- * the httpOnly cookie and repopulates this store.
+ * Extended to include profileImage, bio, location, and language.
  */
 
 import { create } from 'zustand';
 
 export interface AuthUser {
-  id:          string;
-  name:        string;
-  email:       string;
-  avatarColor: string;
-  accentTheme: string;
-  darkMode:    boolean;
-  createdAt:   string;
+  id:           string;
+  name:         string;
+  email:        string;
+  avatarColor:  string;
+  accentTheme:  string;
+  darkMode:     boolean;
+  createdAt:    string;
+  // Extended profile fields (stored client-side)
+  bio?:         string;
+  location?:    string;
+  language?:    string;
+  profileImage?: string | null;
 }
 
 interface AuthState {
@@ -26,20 +27,12 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading:       boolean;
 
-  /** Called after a successful login or register */
   setAuth:         (user: AuthUser, accessToken: string) => void;
-
-  /**
-   * Called after a silent token refresh (when we have a new access token
-   * but don't need to update the user object).
-   */
   setAccessToken:  (token: string) => void;
-
-  /** Sets only the loading flag (used during silent re-auth) */
   setLoading:      (loading: boolean) => void;
-
-  /** Clears all auth state on logout */
   logout:          () => void;
+  /** Update profile fields without full re-auth */
+  updateUser:      (updates: Partial<AuthUser>) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -51,12 +44,15 @@ export const useAuthStore = create<AuthState>((set) => ({
   setAuth: (user, accessToken) =>
     set({ user, accessToken, isAuthenticated: true, isLoading: false }),
 
-  setAccessToken: (token) =>
-    set({ accessToken: token }),
+  setAccessToken: (token) => set({ accessToken: token }),
 
-  setLoading: (isLoading) =>
-    set({ isLoading }),
+  setLoading: (isLoading) => set({ isLoading }),
 
   logout: () =>
     set({ user: null, accessToken: null, isAuthenticated: false, isLoading: false }),
+
+  updateUser: (updates) =>
+    set((state) => ({
+      user: state.user ? { ...state.user, ...updates } : null,
+    })),
 }));

@@ -1,11 +1,7 @@
 /**
- * @file app/(tabs)/tasks/index.tsx
- * @description Tasks List screen with filter tabs.
- *
- * FIXES:
- * 1. Removed Axios-style `const { data } = await taskApi.list()` —
- *    Fetch API returns the body directly, so we use `result.data`
- * 2. Back button was a plain View (not tappable) — fixed to TouchableOpacity
+ * @file app/(tabs)/tasks.tsx
+ * @description Tasks screen — status cycling with proper icons.
+ * Toggle cycles: TODO → IN_PROGRESS → DONE → TODO
  */
 
 import { TaskSkeleton } from '@/components/ui/Skeleton';
@@ -26,27 +22,32 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Plus, CheckSquare, Circle, Play, CheckCircle2 } from 'lucide-react-native';
 
 type Filter = 'ALL' | TaskStatus;
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'ALL', label: 'All' },
-  { key: 'TODO', label: 'Todo' },
-  { key: 'IN_PROGRESS', label: 'In Progress' },
-  { key: 'DONE', label: 'Done' },
+const FILTERS: { key: Filter; label: string; Icon: React.ComponentType<any>; activeColor: string }[] = [
+  { key: 'ALL',         label: 'All',         Icon: CheckSquare,  activeColor: '' },
+  { key: 'TODO',        label: 'To Do',       Icon: Circle,       activeColor: '#A0A3B8' },
+  { key: 'IN_PROGRESS', label: 'In Progress', Icon: Play,         activeColor: '#3B82F6' },
+  { key: 'DONE',        label: 'Done',        Icon: CheckCircle2, activeColor: '#22C55E' },
+];
+
+const STATUS_GROUPS = [
+  { key: 'TODO'        as TaskStatus, label: 'To Do',       dot: '#A0A3B8' },
+  { key: 'IN_PROGRESS' as TaskStatus, label: 'In Progress', dot: '#3B82F6' },
+  { key: 'DONE'        as TaskStatus, label: 'Done',        dot: '#22C55E' },
 ];
 
 export default function Tasks() {
   const t = useAppTheme();
   const router = useRouter();
-  const { tasks, isLoading, setTasks, setLoading, toggleTask } = useTaskStore();
+  const { tasks, isLoading, setTasks, setLoading, toggleTask, updateTask } = useTaskStore();
   const [filter, setFilter] = useState<Filter>('ALL');
 
-  // ── Data loading ───────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // FIX: No Axios destructuring — Fetch returns body directly
       const result = await taskApi.list();
       setTasks(result.data);
     } catch {
@@ -56,130 +57,99 @@ export default function Tasks() {
     }
   }, [setTasks, setLoading]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
-  // ── Filtered / grouped data ────────────────────────────────────────────────
   const filtered =
     filter === 'ALL' ? tasks : tasks.filter((t) => t.status === filter);
-
-  const groups: { key: TaskStatus; label: string; dot: string }[] = [
-    { key: 'TODO', label: 'To Do', dot: t.textSecondary },
-    { key: 'IN_PROGRESS', label: 'In Progress', dot: '#3B82F6' },
-    { key: 'DONE', label: 'Done', dot: '#22C55E' },
-  ];
 
   const handleToggle = async (task: Task) => {
     toggleTask(task.id);
     try {
-      await taskApi.toggle(task.id);
+      const res = await taskApi.toggle(task.id);
+      updateTask(task.id, { status: res.data.status });
     } catch {
-      toggleTask(task.id);
-    } // revert
+      toggleTask(task.id); // revert
+    }
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}>
       {/* Header */}
-      <View style={styles.header}>
-        {/* FIX: was a plain non-tappable View */}
-        <TouchableOpacity
-          style={[
-            styles.iconBtn,
-            { backgroundColor: t.surface, borderColor: t.border },
-          ]}
-          onPress={() => router.back()}
-        >
-          <Text style={{ color: t.textPrimary }}>‹</Text>
-        </TouchableOpacity>
-        <Text
-          style={{
-            fontSize: 18,
-            fontWeight: '700',
-            color: t.textPrimary,
-            letterSpacing: -0.4,
-          }}
-        >
-          My Tasks
-        </Text>
-        <View
-          style={[
-            styles.iconBtn,
-            { backgroundColor: t.surface, borderColor: t.border },
-          ]}
-        >
-          <Text style={{ color: t.textPrimary }}>⊟</Text>
+      <View style={[styles.header, { borderBottomColor: t.border }]}>
+        <View>
+          <Text style={{ fontSize: 12, color: t.textTertiary }}>
+            {tasks.length} total task{tasks.length !== 1 ? 's' : ''}
+          </Text>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: t.textPrimary, letterSpacing: -0.5 }}>
+            My Tasks
+          </Text>
         </View>
+        <TouchableOpacity
+          style={[styles.addBtn, { backgroundColor: t.accent }]}
+          onPress={() => router.push('/tasks/create')}
+        >
+          <Plus size={20} color="white" strokeWidth={2.5} />
+        </TouchableOpacity>
       </View>
 
       {/* Filter pills */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingBottom: 14,
-          gap: 8,
-          flexDirection: 'row',
-        }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 12, gap: 8, flexDirection: 'row' }}
       >
-        {FILTERS.map((f) => (
-          <TouchableOpacity
-            key={f.key}
-            onPress={() => setFilter(f.key)}
-            style={[
-              styles.pill,
-              {
-                backgroundColor: filter === f.key ? t.accent : t.surface2,
-                borderColor: filter === f.key ? t.accent : t.border,
-              },
-            ]}
-          >
-            <Text
-              style={{
-                fontSize: 12,
-                fontWeight: '600',
-                color: filter === f.key ? 'white' : t.textSecondary,
-              }}
+        {FILTERS.map((f) => {
+          const isActive = filter === f.key;
+          const activeColor = f.key === 'ALL' ? t.accent : f.activeColor;
+          return (
+            <TouchableOpacity
+              key={f.key}
+              onPress={() => setFilter(f.key)}
+              style={[
+                styles.pill,
+                {
+                  backgroundColor: isActive ? (f.key === 'ALL' ? t.accent : activeColor + '18') : t.surface2,
+                  borderColor: isActive ? (f.key === 'ALL' ? t.accent : activeColor) : t.border,
+                },
+              ]}
             >
-              {f.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <f.Icon
+                size={12}
+                color={isActive ? (f.key === 'ALL' ? 'white' : activeColor) : t.textSecondary}
+                strokeWidth={2.5}
+              />
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '600',
+                  color: isActive ? (f.key === 'ALL' ? 'white' : activeColor) : t.textSecondary,
+                }}
+              >
+                {f.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={load}
-            tintColor={t.accent}
-          />
-        }
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={load} tintColor={t.accent} />}
       >
         {isLoading ? (
-          <>
-            {[1, 2, 3, 4].map((i) => (
-              <TaskSkeleton key={i} />
-            ))}
-          </>
+          <>{[1, 2, 3, 4].map((i) => <TaskSkeleton key={i} />)}</>
         ) : filter !== 'ALL' ? (
-          // Flat filtered list
           filtered.length === 0 ? (
             <View style={{ alignItems: 'center', paddingTop: 60 }}>
-              <Text style={{ fontSize: 40, marginBottom: 12 }}>📭</Text>
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontWeight: '700',
-                  color: t.textPrimary,
-                }}
-              >
+              <View style={[styles.emptyIcon, { backgroundColor: t.surface2 }]}>
+                <CheckSquare size={32} color={t.textTertiary} strokeWidth={1.5} />
+              </View>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: t.textPrimary, marginTop: 14 }}>
                 No tasks here
+              </Text>
+              <Text style={{ fontSize: 13, color: t.textSecondary, marginTop: 4 }}>
+                {filter === 'TODO' ? 'Nothing to do!' : filter === 'IN_PROGRESS' ? 'No active tasks' : 'Nothing done yet'}
               </Text>
             </View>
           ) : (
@@ -194,59 +164,18 @@ export default function Tasks() {
             ))
           )
         ) : (
-          // Grouped by status when "All" is selected
-          groups.map(({ key, label, dot }) => {
+          STATUS_GROUPS.map(({ key, label, dot }) => {
             const items = tasks.filter((x) => x.status === key);
             if (items.length === 0) return null;
             return (
-              <View key={key}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 8,
-                    marginBottom: 10,
-                    marginTop: key !== 'TODO' ? 6 : 0,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: dot,
-                    }}
-                  />
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      fontWeight: '700',
-                      color: t.textSecondary,
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.6,
-                    }}
-                  >
+              <View key={key} style={{ marginBottom: 6 }}>
+                <View style={styles.groupHeader}>
+                  <View style={[styles.groupDot, { backgroundColor: dot }]} />
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: t.textSecondary, textTransform: 'uppercase', letterSpacing: 0.6 }}>
                     {label}
                   </Text>
-                  <View
-                    style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: 6,
-                      backgroundColor: t.surface2,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontWeight: '700',
-                        color: t.textSecondary,
-                      }}
-                    >
-                      {items.length}
-                    </Text>
+                  <View style={[styles.groupCount, { backgroundColor: t.surface2 }]}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: t.textSecondary }}>{items.length}</Text>
                   </View>
                 </View>
                 {items.map((task) => (
@@ -272,21 +201,12 @@ export default function Tasks() {
             backgroundColor: t.accent,
             ...(Platform.OS === 'web'
               ? { boxShadow: `0px 8px 20px ${t.accent}33` }
-              : { shadowColor: t.accent }),
+              : { shadowColor: t.accent, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 8 }),
           },
         ]}
         onPress={() => router.push('/tasks/create')}
       >
-        <Text
-          style={{
-            color: 'white',
-            fontSize: 24,
-            fontWeight: '300',
-            lineHeight: 26,
-          }}
-        >
-          +
-        </Text>
+        <Plus size={24} color="white" strokeWidth={2.5} />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -294,26 +214,49 @@ export default function Tasks() {
 
 const styles = StyleSheet.create({
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
   },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 1,
+  addBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pill: {
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 100,
-    borderWidth: 1,
+    borderWidth: 1.5,
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  groupDot: { width: 8, height: 8, borderRadius: 4 },
+  groupCount: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fab: {
     position: 'absolute',
@@ -324,13 +267,5 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    ...(Platform.OS === 'web'
-      ? { boxShadow: '0px 8px 20px rgba(0,0,0,0.1)' }
-      : {
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 1,
-          shadowRadius: 20,
-          elevation: 8,
-        }),
   },
 });
