@@ -1,18 +1,14 @@
 /**
- * @file app/(tabs)/projects/index.tsx
- * @description Projects list screen.
- *
+ * @file app/(tabs)/projects.tsx
  * FIXES:
- * 1. Removed Axios-style `const { data } = await projectApi.list()` —
- *    Fetch returns body directly, so we use `result.data`
- * 2. Modal state (name, emoji, color) now resets when the user cancels,
- *    so stale input doesn't persist on re-open
+ * 1. Modal Input: KeyboardAvoidingView wraps modal content for Android
+ * 2. Deprecated shadow* props replaced with Platform-aware boxShadow / elevation
  */
 
 import React, { useEffect, useCallback, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  RefreshControl, Alert, Modal, TextInput,
+  RefreshControl, Alert, Modal, Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,37 +28,24 @@ export default function Projects() {
   const router = useRouter();
   const { projects, isLoading, setProjects, addProject, setLoading } = useProjectStore();
 
-  // Modal state
   const [showModal, setShowModal] = useState(false);
   const [name,      setName]      = useState('');
   const [color,     setColor]     = useState(DEFAULT_COLOR);
   const [emoji,     setEmoji]     = useState('');
   const [creating,  setCreating]  = useState(false);
 
-  /** Resets the creation form to its default values */
   function resetForm() {
     setName('');
     setEmoji('');
     setColor(DEFAULT_COLOR);
   }
 
-  /** Opens the modal with a clean form */
-  function openModal() {
-    resetForm();
-    setShowModal(true);
-  }
+  function openModal()  { resetForm(); setShowModal(true); }
+  function closeModal() { setShowModal(false); resetForm(); }
 
-  /** Closes the modal and discards any in-progress input */
-  function closeModal() {
-    setShowModal(false);
-    resetForm(); // FIX: reset on cancel so stale input doesn't show on re-open
-  }
-
-  // ── Data loading ───────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // FIX: Fetch returns body directly — use result.data
       const result = await projectApi.list();
       setProjects(result.data);
     } catch {
@@ -74,12 +57,10 @@ export default function Projects() {
 
   useEffect(() => { load(); }, [load]);
 
-  // ── Create project ─────────────────────────────────────────────────────────
   const handleCreate = async () => {
     if (!name.trim()) return;
     setCreating(true);
     try {
-      // FIX: Fetch returns body directly — use result.data
       const result = await projectApi.create({ name: name.trim(), color, emoji: emoji || undefined });
       addProject(result.data);
       closeModal();
@@ -91,7 +72,11 @@ export default function Projects() {
     }
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const addBtnShadow = Platform.select({
+    web:     { boxShadow: `0 4px 12px ${theme.accentShadow}` } as object,
+    default: { elevation: 4 },
+  });
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       {/* Header */}
@@ -105,7 +90,7 @@ export default function Projects() {
           </Text>
         </View>
         <TouchableOpacity
-          style={[styles.addBtn, { backgroundColor: theme.accent }]}
+          style={[styles.addBtn, { backgroundColor: theme.accent }, addBtnShadow]}
           onPress={openModal}
         >
           <Text style={{ color: 'white', fontSize: 20 }}>+</Text>
@@ -144,48 +129,82 @@ export default function Projects() {
 
       {/* Create project modal */}
       <Modal visible={showModal} transparent animationType="slide">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View style={[styles.modal, { backgroundColor: theme.surface }]}>
-            <View style={styles.drag} />
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'android' ? 24 : 0}
+          enabled={Platform.OS !== 'web'}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modal, { backgroundColor: theme.surface }]}>
+              <View style={styles.drag} />
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: theme.textPrimary }}>
-                New Project
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: theme.textPrimary }}>
+                  New Project
+                </Text>
+                <TouchableOpacity onPress={closeModal} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={{ fontSize: 20, color: theme.textTertiary }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Input
+                label="Project Name"
+                value={name}
+                onChangeText={setName}
+                placeholder="Q2 Campaign"
+                returnKeyType="next"
+                autoFocus
+              />
+              <Input
+                label="Emoji (optional)"
+                value={emoji}
+                onChangeText={setEmoji}
+                placeholder="📱"
+                returnKeyType="done"
+                onSubmitEditing={handleCreate}
+              />
+
+              <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textSecondary, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Color
               </Text>
-              <TouchableOpacity onPress={closeModal}>
-                <Text style={{ fontSize: 20, color: theme.textTertiary }}>✕</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
+                {COLORS.map((c) => {
+                  const selected = color === c;
+                  const swatchShadow = Platform.select({
+                    web:     selected ? { boxShadow: `0 4px 12px ${c}66` } as object : {},
+                    default: selected ? { elevation: 4 } : { elevation: 0 },
+                  });
+                  return (
+                    <TouchableOpacity
+                      key={c}
+                      onPress={() => setColor(c)}
+                      style={[
+                        styles.swatch,
+                        { backgroundColor: c },
+                        selected && styles.swatchSelected,
+                        swatchShadow,
+                      ]}
+                    />
+                  );
+                })}
+              </View>
+
+              <Button label="Create Project" fullWidth onPress={handleCreate} loading={creating} />
             </View>
-
-            <Input label="Project Name" value={name} onChangeText={setName} placeholder="Q2 Campaign" />
-            <Input label="Emoji (optional)" value={emoji} onChangeText={setEmoji} placeholder="📱" />
-
-            <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textSecondary, marginBottom: 10 }}>
-              Color
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
-              {COLORS.map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  onPress={() => setColor(c)}
-                  style={[styles.swatch, { backgroundColor: c }, color === c && styles.swatchSelected]}
-                />
-              ))}
-            </View>
-
-            <Button label="Create Project" fullWidth onPress={handleCreate} loading={creating} />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  header:          { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  addBtn:          { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  modal:           { padding: 20, paddingBottom: 36, borderRadius: 20 },
-  drag:            { width: 36, height: 4, borderRadius: 2, backgroundColor: '#E4E6F0', alignSelf: 'center', marginBottom: 16 },
-  swatch:          { width: 28, height: 28, borderRadius: 14 },
-  swatchSelected:  { shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 6, elevation: 4, transform: [{ scale: 1.15 }] },
+  header:         { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  addBtn:         { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  modalOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modal:          { padding: 20, paddingBottom: 36, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  drag:           { width: 36, height: 4, borderRadius: 2, backgroundColor: '#E4E6F0', alignSelf: 'center', marginBottom: 16 },
+  swatch:         { width: 28, height: 28, borderRadius: 14 },
+  swatchSelected: { transform: [{ scale: 1.15 }] },
 });

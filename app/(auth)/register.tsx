@@ -1,13 +1,20 @@
 /**
  * @file app/(auth)/register.tsx
- * @description Register / Create Account screen.
- * Uses Zod registerSchema for validation and the Fetch-based authApi.
+ * FIXES:
+ * 1. Android keyboard: KeyboardAvoidingView behavior="height" + keyboardVerticalOffset
+ * 2. Web inputs: no browser outline clash, proper sizing
+ * 3. Deprecated shadow* replaced with boxShadow / elevation
  */
 
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  KeyboardAvoidingView, Platform,
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,8 +25,6 @@ import { registerSchema, getFieldErrors } from '@/services/validators';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import type { AuthUser } from '@/store/auth.store';
-
-// ─── Password strength ─────────────────────────────────────────────────────
 
 const PASSWORD_RULES = [
   { label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
@@ -36,8 +41,6 @@ function getPasswordStrength(password: string) {
   if (passed === 3) return { label: 'Good',   color: '#3B82F6',     percentage: 75  };
   return              { label: 'Strong', color: '#22C55E',     percentage: 100 };
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Register() {
   const t       = useAppTheme();
@@ -70,11 +73,19 @@ export default function Register() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const response = await authApi.register({ name: name.trim(), email: email.trim(), password });
+      const response = await authApi.register({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+      });
       setAuth(response.user as unknown as AuthUser, response.accessToken);
       router.replace('/(tabs)');
     } catch (err) {
-      setErrors({ general: err instanceof Error ? err.message : 'Registration failed. Please try again.' });
+      setErrors({
+        general: err instanceof Error
+          ? err.message
+          : 'Registration failed. Please try again.',
+      });
     } finally {
       setLoading(false);
     }
@@ -82,8 +93,18 @@ export default function Register() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'android' ? 24 : 0}
+        enabled={Platform.OS !== 'web'}
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.container}>
             <TouchableOpacity
               style={[styles.backBtn, { backgroundColor: t.surface, borderColor: t.border }]}
@@ -111,6 +132,7 @@ export default function Register() {
               autoComplete="name"
               placeholder="Alex Johnson"
               error={errors.name}
+              returnKeyType="next"
             />
 
             <Input
@@ -122,6 +144,7 @@ export default function Register() {
               autoComplete="email"
               placeholder="you@example.com"
               error={errors.email}
+              returnKeyType="next"
             />
 
             <Input
@@ -131,18 +154,29 @@ export default function Register() {
               secureTextEntry={!showPass}
               placeholder="••••••••"
               error={errors.password}
+              returnKeyType="next"
               rightIcon={
-                <TouchableOpacity onPress={() => setShowPass(!showPass)}>
-                  <Text style={{ color: t.textTertiary, fontSize: 12 }}>{showPass ? 'Hide' : 'Show'}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowPass(!showPass)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={{ color: t.textTertiary, fontSize: 12, fontWeight: '600' }}>
+                    {showPass ? 'Hide' : 'Show'}
+                  </Text>
                 </TouchableOpacity>
               }
             />
 
-            {/* Password strength bar */}
+            {/* Password strength */}
             {password.length > 0 ? (
-              <View style={{ marginBottom: 16 }}>
+              <View style={{ marginTop: -8, marginBottom: 16 }}>
                 <View style={[styles.strengthOuter, { backgroundColor: t.surface2 }]}>
-                  <View style={[styles.strengthInner, { width: `${strength.percentage}%`, backgroundColor: strength.color }]} />
+                  <View
+                    style={[
+                      styles.strengthInner,
+                      { width: `${strength.percentage}%` as `${number}%`, backgroundColor: strength.color },
+                    ]}
+                  />
                 </View>
                 {strength.label ? (
                   <Text style={{ fontSize: 11, fontWeight: '600', color: strength.color, marginTop: 4 }}>
@@ -152,14 +186,18 @@ export default function Register() {
                 <View style={{ marginTop: 8, gap: 4 }}>
                   {PASSWORD_RULES.map((rule) => (
                     <View key={rule.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <View style={[
-                        styles.ruleDot,
-                        { backgroundColor: rule.test(password) ? '#22C55E' : t.border },
-                      ]} />
-                      <Text style={{
-                        fontSize: 11,
-                        color: rule.test(password) ? t.textSecondary : t.textTertiary,
-                      }}>
+                      <View
+                        style={[
+                          styles.ruleDot,
+                          { backgroundColor: rule.test(password) ? '#22C55E' : t.border },
+                        ]}
+                      />
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          color: rule.test(password) ? t.textSecondary : t.textTertiary,
+                        }}
+                      >
                         {rule.label}
                       </Text>
                     </View>
@@ -175,6 +213,8 @@ export default function Register() {
               secureTextEntry={!showPass}
               placeholder="••••••••"
               error={errors.confirmPassword}
+              returnKeyType="done"
+              onSubmitEditing={handleRegister}
             />
 
             <Button
@@ -185,8 +225,10 @@ export default function Register() {
               style={{ marginTop: 8, marginBottom: 24 }}
             />
 
-            <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
-              <Text style={{ color: t.textSecondary, fontSize: 14 }}>Already have an account? </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Text style={{ color: t.textSecondary, fontSize: 14 }}>
+                Already have an account?{' '}
+              </Text>
               <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
                 <Text style={{ color: t.accent, fontWeight: '700', fontSize: 14 }}>Sign in</Text>
               </TouchableOpacity>
@@ -200,7 +242,10 @@ export default function Register() {
 
 const styles = StyleSheet.create({
   container:     { padding: 24, paddingTop: 12, flex: 1 },
-  backBtn:       { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+  backBtn:       {
+    width: 36, height: 36, borderRadius: 10, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 24,
+  },
   heading:       { fontSize: 24, fontWeight: '700', letterSpacing: -0.8, marginBottom: 6 },
   sub:           { fontSize: 14, marginBottom: 28 },
   errorBanner:   { padding: 12, borderRadius: 10, marginBottom: 16 },

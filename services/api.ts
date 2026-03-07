@@ -16,18 +16,52 @@ import { useAuthStore } from '@/store/auth.store';
 
 // ─── Base URL ─────────────────────────────────────────────────────────────────
 /**
- * Android emulators use 10.0.2.2 to reach the host machine's localhost.
- * For a physical Android device, change ANDROID_LAN_IP to your dev
- * machine's local network IP (find it with `ipconfig` / `ifconfig`).
+ * HOW TO CONFIGURE FOR YOUR ENVIRONMENT:
+ *
+ * Option A — ngrok (recommended for physical devices, both iOS and Android):
+ *   Set NGROK_URL to your full ngrok https URL (no trailing slash, no port).
+ *   e.g. 'https://unrepeatable-squarrose-leanna.ngrok-free.dev'
+ *   ngrok already handles the port mapping, so do NOT append :3000.
+ *
+ * Option B — Local network IP (physical device on same Wi-Fi):
+ *   Set LAN_IP to your dev machine's local IP (run `ipconfig` / `ifconfig`).
+ *   e.g. '192.168.1.42'
+ *   The http://<LAN_IP>:3000 URL will be used.
+ *
+ * Option C — Emulator only:
+ *   Android emulator: 10.0.2.2 maps to host localhost — works automatically.
+ *   iOS simulator: localhost works directly — works automatically.
+ *   Leave NGROK_URL empty and LAN_IP empty to use emulator defaults.
  */
-const ANDROID_LAN_IP = 'https://unrepeatable-squarrose-leanna.ngrok-free.dev'; //192.168.32.107 ← update for physical device testing
 
-const BASE_URL = Platform.select({
-  android: `http://${ANDROID_LAN_IP}:3000/api/v1`,
-  ios:     'http://localhost:3000/api/v1',
-  web:     'http://localhost:3000/api/v1',
-  default: 'http://localhost:3000/api/v1',
-})!;
+/** Set this to your ngrok URL to use it on ALL platforms (overrides everything else) */
+const NGROK_URL = 'https://unrepeatable-squarrose-leanna.ngrok-free.dev'; // ← your ngrok URL
+
+/** Set this to your LAN IP for physical-device testing without ngrok */
+const LAN_IP = ''; // e.g. '192.168.1.42' — leave empty if using ngrok or emulator
+
+function getBaseUrl(): string {
+  // If a ngrok URL is configured, use it everywhere (simplest setup)
+  if (NGROK_URL) {
+    // ngrok already proxies port 3000 → 443, so never append :3000
+    return `${NGROK_URL}/api/v1`;
+  }
+
+  // Physical device on LAN (no ngrok)
+  if (LAN_IP) {
+    return `http://${LAN_IP}:3000/api/v1`;
+  }
+
+  // Emulator / simulator defaults
+  return Platform.select({
+    android: 'http://10.0.2.2:3000/api/v1',   // Android emulator → host localhost
+    ios:     'http://localhost:3000/api/v1',    // iOS simulator
+    web:     'http://localhost:3000/api/v1',
+    default: 'http://localhost:3000/api/v1',
+  })!;
+}
+
+const BASE_URL = getBaseUrl();
 
 // ─── Refresh queue ────────────────────────────────────────────────────────────
 let isRefreshing = false;
@@ -44,10 +78,6 @@ function flushQueue(error: unknown, token: string | null): void {
 }
 
 // ─── Core fetch wrapper ───────────────────────────────────────────────────────
-/**
- * Makes an authenticated request. Returns the parsed JSON body directly.
- * On 401, refreshes the token once and retries. On any other error, throws.
- */
 async function apiFetch<T = unknown>(
   path:    string,
   options: RequestInit = {},
@@ -57,6 +87,8 @@ async function apiFetch<T = unknown>(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    // ngrok free tier shows a browser warning page — this header bypasses it
+    'ngrok-skip-browser-warning': 'true',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers as Record<string, string> | undefined),
   };
@@ -84,7 +116,12 @@ async function apiFetch<T = unknown>(
     isRefreshing = true;
     try {
       const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        credentials: 'include',
       });
       if (!refreshRes.ok) throw new Error('Session expired. Please sign in again.');
       const { accessToken: newToken } = await refreshRes.json() as { accessToken: string };
@@ -114,6 +151,7 @@ async function retryWithToken<T>(path: string, options: RequestInit, token: stri
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
       Authorization:  `Bearer ${token}`,
       ...(options.headers as Record<string, string> | undefined),
     },
@@ -147,7 +185,6 @@ export interface AuthRefreshResponse{ message: string; accessToken: string; }
 export interface MessageResponse    { message: string; }
 export interface UserResponse       { user: AuthUserShape; message?: string; }
 
-// Task/Project response types use imported types
 import type { Task, Project, SubTask } from '@/types';
 export interface TaskListResponse    { data: Task[];    message: string; }
 export interface TaskResponse        { data: Task;      message?: string; }
@@ -165,13 +202,8 @@ export const authApi = {
 
   logout: () => api.post<MessageResponse>('/auth/logout'),
 
-  /**
-   * Call this on app launch for silent re-auth.
-   * Returns a new accessToken using the stored httpOnly cookie.
-   */
   refresh: () => api.post<AuthRefreshResponse>('/auth/refresh'),
 
-  /** Returns the current user's profile. Does NOT return a token. */
   me: () => api.get<AuthMeResponse>('/auth/me'),
 };
 
@@ -192,17 +224,17 @@ export const taskApi = {
 
 // ─── Project endpoints ────────────────────────────────────────────────────────
 export const projectApi = {
-  list:   ()                                                                          => api.get<ProjectListResponse>('/projects'),
-  get:    (id: string)                                                                => api.get<ProjectResponse>(`/projects/${id}`),
-  create: (data: { name: string; color: string; emoji?: string })                    => api.post<ProjectResponse>('/projects', data),
+  list:   ()                                                                           => api.get<ProjectListResponse>('/projects'),
+  get:    (id: string)                                                                 => api.get<ProjectResponse>(`/projects/${id}`),
+  create: (data: { name: string; color: string; emoji?: string })                     => api.post<ProjectResponse>('/projects', data),
   update: (id: string, data: Partial<{ name: string; color: string; emoji: string }>) => api.patch<ProjectResponse>(`/projects/${id}`, data),
-  remove: (id: string)                                                                => api.delete<MessageResponse>(`/projects/${id}`),
+  remove: (id: string)                                                                 => api.delete<MessageResponse>(`/projects/${id}`),
 };
 
 // ─── User endpoints ───────────────────────────────────────────────────────────
 export const userApi = {
-  getProfile:        ()                                                                             => api.get<UserResponse>('/users/me'),
-  updateProfile:     (data: { name?: string; email?: string })                                     => api.patch<UserResponse>('/users/me', data),
-  changePassword:    (data: { currentPassword: string; newPassword: string })                      => api.patch<MessageResponse>('/users/me/password', data),
-  updatePreferences: (data: { darkMode?: boolean; accentTheme?: string; avatarColor?: string })    => api.patch<UserResponse>('/users/me/preferences', data),
+  getProfile:        ()                                                                          => api.get<UserResponse>('/users/me'),
+  updateProfile:     (data: { name?: string; email?: string })                                  => api.patch<UserResponse>('/users/me', data),
+  changePassword:    (data: { currentPassword: string; newPassword: string })                   => api.patch<MessageResponse>('/users/me/password', data),
+  updatePreferences: (data: { darkMode?: boolean; accentTheme?: string; avatarColor?: string }) => api.patch<UserResponse>('/users/me/preferences', data),
 };
