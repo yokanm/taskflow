@@ -1,9 +1,9 @@
 /**
- * @file app/(tabs)/tasks/[id].tsx
- * @description Task Detail screen.
+ * @file app/tasks/[id].tsx
  *
- * FIX: Removed Axios-style destructuring `const { data } = await taskApi.get(id)`.
- * Fetch API returns the body directly, so `result.data` holds the Task.
+ * FIX: replaced relative import `../../constants/theme-config` with the
+ * module alias `@/constants/theme-config` to match every other file in the
+ * project and avoid path-resolution failures.
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -13,10 +13,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/context/ThemeContext';
 import { useTaskStore } from '@/store/task.store';
 import { taskApi } from '@/services/api';
-// import { PRIORITY_STYLES } from '';
 import { Button } from '@/components/ui/Button';
 import type { Task } from '@/types';
-import  {PRIORITY_STYLES } from '../../constants/theme-config';
+import { PRIORITY_STYLES } from '@/constants/theme-config'; // ← FIX: was '../../constants/theme-config'
 
 export default function TaskDetail() {
   const { id }   = useLocalSearchParams<{ id: string }>();
@@ -24,17 +23,15 @@ export default function TaskDetail() {
   const router   = useRouter();
   const { tasks, updateTask, removeTask } = useTaskStore();
 
-  // Seed from the store if we already have the task (avoids loading flash)
-  const [task,          setTask]          = useState<Task | null>(tasks.find((x) => x.id === id) ?? null);
-  const [loading,       setLoading]       = useState(!task);
-  const [toggling,      setToggling]      = useState(false);
-  const [subtaskInput,  setSubtaskInput]  = useState('');
+  const [task,         setTask]         = useState<Task | null>(tasks.find((x) => x.id === id) ?? null);
+  const [loading,      setLoading]      = useState(!task);
+  const [toggling,     setToggling]     = useState(false);
+  const [subtaskInput, setSubtaskInput] = useState('');
 
   // ── Load task ──────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      // FIX: Fetch returns body directly — use result.data, not data.data
       const result = await taskApi.get(id);
       setTask(result.data);
       updateTask(id, result.data);
@@ -53,12 +50,12 @@ export default function TaskDetail() {
     if (!task || toggling) return;
     setToggling(true);
     const next = { ...task, status: task.status === 'DONE' ? ('TODO' as const) : ('DONE' as const) };
-    setTask(next); // optimistic
+    setTask(next);
     try {
       await taskApi.toggle(task.id);
       updateTask(task.id, { status: next.status });
     } catch {
-      setTask(task); // revert
+      setTask(task);
     } finally {
       setToggling(false);
     }
@@ -90,7 +87,7 @@ export default function TaskDetail() {
     try {
       await taskApi.addSubtask(task.id, subtaskInput.trim());
       setSubtaskInput('');
-      load(); // Reload to get updated subtasks list
+      load();
     } catch {
       Alert.alert('Error', 'Failed to add subtask');
     }
@@ -99,7 +96,6 @@ export default function TaskDetail() {
   // ── Toggle subtask ─────────────────────────────────────────────────────────
   const handleToggleSubtask = async (subId: string) => {
     if (!task) return;
-    // Optimistic update
     setTask((prev) =>
       prev
         ? { ...prev, subTasks: prev.subTasks.map((s) => s.id === subId ? { ...s, done: !s.done } : s) }
@@ -108,7 +104,7 @@ export default function TaskDetail() {
     try {
       await taskApi.toggleSubtask(task.id, subId);
     } catch {
-      load(); // Revert by reloading
+      load();
     }
   };
 
@@ -162,10 +158,14 @@ export default function TaskDetail() {
         {/* Info grid */}
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
           {dueDate ? (
-            <View style={[styles.infoCard, { flex: 1,
-              backgroundColor: isOverdue ? '#FEF2F2' : t.surface2,
-              borderColor:     isOverdue ? '#FECACA' : t.border,
-            }]}>
+            <View style={[
+              styles.infoCard,
+              {
+                flex: 1,
+                backgroundColor: isOverdue ? '#FEF2F2' : t.surface2,
+                borderColor:     isOverdue ? '#FECACA' : t.border,
+              },
+            ]}>
               <Text style={styles.infoLabel}>📅 Deadline</Text>
               <Text style={{ fontSize: 13, fontWeight: '600', color: t.textPrimary, marginBottom: 6 }}>
                 {dueDate}
@@ -216,10 +216,9 @@ export default function TaskDetail() {
 
           {task.subTasks.length > 0 && (
             <>
-              {/* Progress bar */}
               <View style={[styles.subProgress, { backgroundColor: t.surface2 }]}>
                 <View style={[styles.subProgressFill, {
-                  width: `${task.subTasks.length > 0 ? (subDone / task.subTasks.length) * 100 : 0}%`,
+                  width: `${task.subTasks.length > 0 ? (subDone / task.subTasks.length) * 100 : 0}%` as `${number}%`,
                   backgroundColor: t.accent,
                 }]} />
               </View>
@@ -247,7 +246,6 @@ export default function TaskDetail() {
             </>
           )}
 
-          {/* Add subtask input */}
           <View style={[styles.addSubtask, { borderColor: t.border }]}>
             <TextInput
               value={subtaskInput}

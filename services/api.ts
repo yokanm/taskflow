@@ -56,7 +56,7 @@ function getBaseUrl(): string {
   return Platform.select({
     android: 'http://10.0.2.2:3000/api/v1',   // Android emulator → host localhost
     ios:     'http://localhost:3000/api/v1',    // iOS simulator
-    web:     'http://localhost:3000/api/v1',
+    web:     'http://192.168.32.107:3000/api/v1',
     default: 'http://localhost:3000/api/v1',
   })!;
 }

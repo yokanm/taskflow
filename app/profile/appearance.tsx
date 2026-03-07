@@ -1,8 +1,11 @@
 /**
- * @file app/(tabs)/profile/appearance.tsx
- * @description Appearance settings screen.
- * Allows users to toggle dark/light mode and pick an accent color.
- * Changes are applied immediately via ThemeContext and synced to the server.
+ * @file app/profile/appearance.tsx
+ *
+ * FIXES:
+ * 1. `Platform` was used in the swatch active-state (Platform.select) but was
+ *    never imported from 'react-native' → ReferenceError crash on open.
+ * 2. handleDarkMode had a pointless no-op `t.setAccentTheme('default')`
+ *    comment-described as a "re-render trick" — removed it.
  */
 
 import { useAppTheme } from '@/context/ThemeContext';
@@ -11,6 +14,7 @@ import type { ThemeKey } from '@/store/theme.store';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
+  Platform,        // ← FIX: was missing, caused ReferenceError
   ScrollView,
   StyleSheet,
   Text,
@@ -20,61 +24,43 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ACCENT_SWATCHES: { key: ThemeKey; label: string; color: string }[] = [
-  { key: 'default', label: 'Default', color: '#6C63FF' },
-  { key: 'rose', label: 'Rose', color: '#F43F5E' },
-  { key: 'ocean', label: 'Ocean', color: '#0EA5E9' },
-  { key: 'forest', label: 'Forest', color: '#22C55E' },
-  { key: 'sunset', label: 'Sunset', color: '#F59E0B' },
+  { key: 'default',  label: 'Default',  color: '#6C63FF' },
+  { key: 'rose',     label: 'Rose',     color: '#F43F5E' },
+  { key: 'ocean',    label: 'Ocean',    color: '#0EA5E9' },
+  { key: 'forest',   label: 'Forest',   color: '#22C55E' },
+  { key: 'sunset',   label: 'Sunset',   color: '#F59E0B' },
   { key: 'midnight', label: 'Midnight', color: '#8B5CF6' },
 ];
 
 export default function Appearance() {
-  const t = useAppTheme();
+  const t      = useAppTheme();
   const router = useRouter();
 
-  // ── Dark mode ────────────────────────────────────────────────────────────────
+  // ── Dark mode ──────────────────────────────────────────────────────────────
+  // FIX: removed the no-op t.setAccentTheme call that was here before
   async function handleDarkMode(dark: boolean): Promise<void> {
-    t.setAccentTheme(t.isDark ? 'default' : 'default'); // no-op trick to re-render
     t.toggleDarkMode();
-    // Sync to server (fire-and-forget — UI already updated)
-    try {
-      await userApi.updatePreferences({ darkMode: dark });
-    } catch {
-      /* silent */
-    }
+    try { await userApi.updatePreferences({ darkMode: dark }); } catch { /* silent */ }
   }
 
-  // ── Accent color ─────────────────────────────────────────────────────────────
-  async function handleAccent(key: ThemeKey, color: string): Promise<void> {
+  // ── Accent color ──────────────────────────────────────────────────────────
+  async function handleAccent(key: ThemeKey): Promise<void> {
     t.setAccentTheme(key);
-    try {
-      await userApi.updatePreferences({ accentTheme: key });
-    } catch {
-      /* silent */
-    }
+    try { await userApi.updatePreferences({ accentTheme: key }); } catch { /* silent */ }
   }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}>
+
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: t.border }]}>
         <TouchableOpacity
-          style={[
-            styles.backBtn,
-            { backgroundColor: t.surface, borderColor: t.border },
-          ]}
+          style={[styles.backBtn, { backgroundColor: t.surface, borderColor: t.border }]}
           onPress={() => router.back()}
         >
           <Text style={{ color: t.textPrimary, fontSize: 18 }}>‹</Text>
         </TouchableOpacity>
-        <Text
-          style={{
-            fontSize: 18,
-            fontWeight: '700',
-            color: t.textPrimary,
-            letterSpacing: -0.4,
-          }}
-        >
+        <Text style={{ fontSize: 18, fontWeight: '700', color: t.textPrimary, letterSpacing: -0.4 }}>
           Appearance
         </Text>
         <View style={{ width: 36 }} />
@@ -84,14 +70,13 @@ export default function Appearance() {
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Mode toggle */}
-        <Text style={[styles.sectionTitle, { color: t.textTertiary }]}>
-          Mode
-        </Text>
+
+        {/* ── Mode toggle ──────────────────────────────────────────────── */}
+        <Text style={[styles.sectionTitle, { color: t.textTertiary }]}>Mode</Text>
         <View style={{ flexDirection: 'row', gap: 12, marginBottom: 28 }}>
           {[
             { label: 'Light', icon: '☀️', isDark: false },
-            { label: 'Dark', icon: '🌙', isDark: true },
+            { label: 'Dark',  icon: '🌙', isDark: true  },
           ].map((mode) => {
             const active = t.isDark === mode.isDark;
             return (
@@ -102,36 +87,21 @@ export default function Appearance() {
                   styles.modeCard,
                   {
                     backgroundColor: active ? t.accentLight : t.surface,
-                    borderColor: active ? t.accent : t.border,
-                    borderWidth: active ? 2 : 1,
+                    borderColor:     active ? t.accent      : t.border,
+                    borderWidth:     active ? 2 : 1,
                   },
                 ]}
               >
-                <Text style={{ fontSize: 28, marginBottom: 8 }}>
-                  {mode.icon}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: '700',
-                    color: active ? t.accent : t.textPrimary,
-                  }}
-                >
+                <Text style={{ fontSize: 28, marginBottom: 8 }}>{mode.icon}</Text>
+                <Text style={{
+                  fontSize: 14, fontWeight: '700',
+                  color: active ? t.accent : t.textPrimary,
+                }}>
                   {mode.label}
                 </Text>
                 {active ? (
-                  <View
-                    style={[styles.checkBadge, { backgroundColor: t.accent }]}
-                  >
-                    <Text
-                      style={{
-                        color: 'white',
-                        fontSize: 10,
-                        fontWeight: '700',
-                      }}
-                    >
-                      ✓
-                    </Text>
+                  <View style={[styles.checkBadge, { backgroundColor: t.accent }]}>
+                    <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>✓</Text>
                   </View>
                 ) : null}
               </TouchableOpacity>
@@ -139,62 +109,47 @@ export default function Appearance() {
           })}
         </View>
 
-        {/* Accent color */}
-        <Text style={[styles.sectionTitle, { color: t.textTertiary }]}>
-          Accent Colour
-        </Text>
+        {/* ── Accent color ────────────────────────────────────────────── */}
+        <Text style={[styles.sectionTitle, { color: t.textTertiary }]}>Accent Colour</Text>
         <View style={styles.swatchGrid}>
           {ACCENT_SWATCHES.map((s) => {
             const active = t.accent === s.color;
+            // FIX: Platform is now imported — this no longer crashes
+            const activeShadow = active
+              ? Platform.select<object>({
+                  web: {
+                    borderWidth: 3,
+                    borderColor: s.color,
+                    // @ts-ignore – web-only
+                    boxShadow: `0px 4px 8px ${s.color}66`,
+                  },
+                  default: {
+                    borderWidth:   3,
+                    borderColor:   s.color,
+                    shadowColor:   s.color,
+                    shadowOpacity: 0.4,
+                    shadowRadius:  8,
+                    shadowOffset:  { width: 0, height: 4 },
+                    elevation:     6,
+                  },
+                }) ?? {}
+              : {};
+
             return (
               <TouchableOpacity
                 key={s.key}
-                onPress={() => handleAccent(s.key, s.color)}
+                onPress={() => handleAccent(s.key)}
                 style={styles.swatchItem}
               >
-                <View
-                  style={[
-                    styles.swatch,
-                    { backgroundColor: s.color },
-                    active &&
-                      Platform.select({
-                        web: {
-                          borderWidth: 3,
-                          borderColor: s.color,
-                          boxShadow: `0px 4px 8px ${s.color}66`,
-                        },
-                        default: {
-                          borderWidth: 3,
-                          borderColor: s.color,
-                          shadowColor: s.color,
-                          shadowOpacity: 0.4,
-                          shadowRadius: 8,
-                          shadowOffset: { width: 0, height: 4 },
-                          elevation: 6,
-                        },
-                      }),
-                  ]}
-                >
+                <View style={[styles.swatch, { backgroundColor: s.color }, activeShadow]}>
                   {active ? (
-                    <Text
-                      style={{
-                        color: 'white',
-                        fontSize: 18,
-                        fontWeight: '700',
-                      }}
-                    >
-                      ✓
-                    </Text>
+                    <Text style={{ color: 'white', fontSize: 18, fontWeight: '700' }}>✓</Text>
                   ) : null}
                 </View>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    color: t.textSecondary,
-                    marginTop: 6,
-                    textAlign: 'center',
-                  }}
-                >
+                <Text style={{
+                  fontSize: 11, color: t.textSecondary,
+                  marginTop: 6, textAlign: 'center',
+                }}>
                   {s.label}
                 </Text>
               </TouchableOpacity>
@@ -202,80 +157,36 @@ export default function Appearance() {
           })}
         </View>
 
-        {/* Live preview */}
-        <Text
-          style={[
-            styles.sectionTitle,
-            { color: t.textTertiary, marginTop: 28 },
-          ]}
-        >
+        {/* ── Live preview ─────────────────────────────────────────────── */}
+        <Text style={[styles.sectionTitle, { color: t.textTertiary, marginTop: 28 }]}>
           Preview
         </Text>
-        <View
-          style={[
-            styles.preview,
-            { backgroundColor: t.surface, borderColor: t.border },
-          ]}
-        >
+        <View style={[styles.preview, { backgroundColor: t.surface, borderColor: t.border }]}>
           <View style={[styles.previewAccent, { backgroundColor: t.accent }]}>
-            <Text style={{ color: 'white', fontWeight: '700', fontSize: 15 }}>
-              Your Theme
-            </Text>
+            <Text style={{ color: 'white', fontWeight: '700', fontSize: 15 }}>Your Theme</Text>
           </View>
           <View style={{ padding: 14, gap: 10 }}>
-            <View
-              style={[
-                styles.previewTask,
-                { backgroundColor: t.surface2, borderColor: t.border },
-              ]}
-            >
+            {/* Done task row */}
+            <View style={[styles.previewTask, { backgroundColor: t.surface2, borderColor: t.border }]}>
               <View style={[styles.previewCb, { backgroundColor: t.accent }]}>
                 <Text style={{ color: 'white', fontSize: 10 }}>✓</Text>
               </View>
-              <Text style={{ fontSize: 13, color: t.textPrimary, flex: 1 }}>
-                Example task
-              </Text>
-              <View
-                style={[styles.previewChip, { backgroundColor: t.accentLight }]}
-              >
-                <Text
-                  style={{ fontSize: 10, color: t.accent, fontWeight: '700' }}
-                >
-                  High
-                </Text>
+              <Text style={{ fontSize: 13, color: t.textPrimary, flex: 1 }}>Example task</Text>
+              <View style={[styles.previewChip, { backgroundColor: t.accentLight }]}>
+                <Text style={{ fontSize: 10, color: t.accent, fontWeight: '700' }}>High</Text>
               </View>
             </View>
-            <View
-              style={[
-                styles.previewTask,
-                { backgroundColor: t.surface2, borderColor: t.border },
-              ]}
-            >
-              <View
-                style={[
-                  styles.previewCb,
-                  { borderWidth: 2, borderColor: t.border },
-                ]}
-              />
-              <Text style={{ fontSize: 13, color: t.textPrimary, flex: 1 }}>
-                Another task
-              </Text>
-              <View
-                style={[styles.previewChip, { backgroundColor: t.surface2 }]}
-              >
-                <Text
-                  style={{
-                    fontSize: 10,
-                    color: t.textSecondary,
-                    fontWeight: '700',
-                  }}
-                >
-                  Low
-                </Text>
+            {/* Pending task row */}
+            <View style={[styles.previewTask, { backgroundColor: t.surface2, borderColor: t.border }]}>
+              <View style={[styles.previewCb, { borderWidth: 2, borderColor: t.border }]} />
+              <Text style={{ fontSize: 13, color: t.textPrimary, flex: 1 }}>Another task</Text>
+              <View style={[styles.previewChip, { backgroundColor: t.surface2 }]}>
+                <Text style={{ fontSize: 10, color: t.textSecondary, fontWeight: '700' }}>Low</Text>
               </View>
             </View>
           </View>
         </View>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -283,71 +194,42 @@ export default function Appearance() {
 
 const styles = StyleSheet.create({
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderBottomWidth: 1,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 36, height: 36, borderRadius: 10, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
   },
   sectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.7,
-    marginBottom: 12,
+    fontSize: 11, fontWeight: '700', textTransform: 'uppercase',
+    letterSpacing: 0.7, marginBottom: 12,
   },
   modeCard: {
-    flex: 1,
-    padding: 18,
-    borderRadius: 16,
-    alignItems: 'center',
-    position: 'relative',
+    flex: 1, padding: 18, borderRadius: 16,
+    alignItems: 'center', position: 'relative',
   },
   checkBadge: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'absolute', top: 10, right: 10,
+    width: 20, height: 20, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
   },
   swatchGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   swatchItem: { alignItems: 'center', width: 56 },
   swatch: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 48, height: 48, borderRadius: 24,
+    alignItems: 'center', justifyContent: 'center',
   },
-  preview: { borderRadius: 16, overflow: 'hidden', borderWidth: 1 },
+  preview:       { borderRadius: 16, overflow: 'hidden', borderWidth: 1 },
   previewAccent: { padding: 14, alignItems: 'center' },
   previewTask: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 10, borderRadius: 10, borderWidth: 1,
   },
   previewCb: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 20, height: 20, borderRadius: 6,
+    alignItems: 'center', justifyContent: 'center',
   },
   previewChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 100 },
 });

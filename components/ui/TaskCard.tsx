@@ -47,11 +47,17 @@ export function TaskCard({ task, onToggle, onPress, showProject }: Props) {
           {showProject && task.project && (
             <View style={[styles.chip, { backgroundColor: t.surface2 }]}>
               <View style={[styles.dot, { backgroundColor: task.project.color }]} />
-              <Text style={{ fontSize: 11, fontWeight: '500', color: t.textSecondary }} numberOfLines={1}>{task.project.name}</Text>
+              <Text style={{ fontSize: 11, fontWeight: '500', color: t.textSecondary }} numberOfLines={1}>
+                {task.project.name}
+              </Text>
             </View>
           )}
           {/* Due date */}
-          {dueLabel && <Text style={{ fontSize: 10, color: t.textTertiary, marginLeft: 'auto', fontFamily: 'monospace' }}>{dueLabel}</Text>}
+          {dueLabel && (
+            <Text style={{ fontSize: 10, color: t.textTertiary, marginLeft: 'auto', fontFamily: 'monospace' }}>
+              {dueLabel}
+            </Text>
+          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -59,11 +65,11 @@ export function TaskCard({ task, onToggle, onPress, showProject }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 12, padding: 12, borderWidth: 1, marginBottom: 8, flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  cb: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 2, flexShrink: 0 },
+  card:  { borderRadius: 12, padding: 12, borderWidth: 1, marginBottom: 8, flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  cb:    { width: 20, height: 20, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 2, flexShrink: 0 },
   check: { width: 10, height: 7, borderLeftWidth: 2, borderBottomWidth: 2, borderColor: 'white', transform: [{ rotate: '-45deg' }, { translateY: -1 }] },
-  info: { flex: 1, minWidth: 0 },
-  foot: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 100 },
-  dot: { width: 5, height: 5, borderRadius: 3 },
+  info:  { flex: 1, minWidth: 0 },
+  foot:  { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  chip:  { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 100 },
+  dot:   { width: 5, height: 5, borderRadius: 3 },
 });
