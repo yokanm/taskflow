@@ -1,14 +1,16 @@
 /**
  * @file app/projects/[id].tsx
  *
- * FIXES:
- * 1. TaskCard onPress was: router.push(`/(tabs)/tasks/${task.id}` as any)
- *    That route does NOT exist — the file is at app/tasks/[id].tsx (root level).
- *    Fixed to: router.push(`/tasks/${task.id}`)
+ * FIX vs previous version:
+ * The original code called `setTasks(result.data)` (the global Zustand setter)
+ * with only the tasks belonging to this project. This silently replaced ALL
+ * tasks in the global store with a subset — meaning navigating back to the
+ * Home or Tasks tab would show an incomplete or empty task list until the
+ * user manually pulled to refresh.
  *
- * 2. FAB onPress was: router.push('/(tabs)/tasks/create' as any)
- *    Same problem — the file is at app/tasks/create.tsx (root level).
- *    Fixed to: router.push('/tasks/create')
+ * Solution: use LOCAL component state (`projectTasks`) for the project detail
+ * view. The global store is only touched when toggling a task (we call
+ * `updateTask` to keep the status in sync), never `setTasks`.
  */
 
 import { TaskCard } from '@/components/ui/TaskCard';
@@ -18,7 +20,7 @@ import { useProjectStore } from '@/store/project.store';
 import { useTaskStore } from '@/store/task.store';
 import type { Task } from '@/types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Platform,
@@ -30,6 +32,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { TaskSkeleton } from '@/components/ui/Skeleton';
+import { Plus, ArrowLeft } from 'lucide-react-native';
 
 export default function ProjectDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -37,23 +41,33 @@ export default function ProjectDetail() {
   const router = useRouter();
 
   const { projects, removeProject } = useProjectStore();
-  const { tasks, setTasks, toggleTask, isLoading, setLoading } = useTaskStore();
+
+  // FIX: use LOCAL state for this project's tasks.
+  // The global store's setTasks() is NOT called here — doing so would
+  // replace all tasks with only this project's tasks.
+  const [projectTasks, setProjectTasks] = useState<Task[]>([]);
+  const [isLoading,    setIsLoading]    = useState(true);
+
+  // We still use updateTask from the global store so that toggling
+  // a task here stays in sync with the Home and Tasks tabs.
+  const { updateTask } = useTaskStore();
 
   const project = projects.find((p) => p.id === id);
 
-  // ── Load tasks for this project ────────────────────────────────────────────
+  // ── Load this project's tasks into LOCAL state ─────────────────────────────
   const load = useCallback(async () => {
     if (!id) return;
-    setLoading(true);
+    setIsLoading(true);
     try {
       const result = await taskApi.list({ projectId: id });
-      setTasks(result.data);
+      // FIX: update local state, NOT the global store
+      setProjectTasks(result.data);
     } catch {
-      // Silent fail
+      Alert.alert('Error', 'Failed to load tasks');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }, [id, setTasks, setLoading]);
+  }, [id]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -61,7 +75,7 @@ export default function ProjectDetail() {
   const handleDelete = () => {
     Alert.alert(
       'Delete Project',
-      'This will also remove all tasks from this project.',
+      'This will also remove all tasks in this project. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -82,29 +96,59 @@ export default function ProjectDetail() {
   };
 
   // ── Toggle task ────────────────────────────────────────────────────────────
+  // Updates both local state (for this screen) and the global store
+  // (so the Home and Tasks tabs stay accurate without a full reload).
   const handleToggle = async (task: Task) => {
-    toggleTask(task.id);
-    try   { await taskApi.toggle(task.id); }
-    catch { toggleTask(task.id); }        // revert
+    // Optimistic update — local state
+    const nextStatus = task.status === 'DONE'
+      ? ('TODO' as const)
+      : task.status === 'TODO'
+        ? ('IN_PROGRESS' as const)
+        : ('DONE' as const);
+
+    setProjectTasks((prev) =>
+      prev.map((t) => t.id === task.id ? { ...t, status: nextStatus } : t)
+    );
+
+    try {
+      const res = await taskApi.toggle(task.id);
+      // Sync actual server status back to both stores
+      setProjectTasks((prev) =>
+        prev.map((t) => t.id === task.id ? { ...t, status: res.data.status } : t)
+      );
+      // FIX: use updateTask (not setTasks) to patch the global store entry
+      updateTask(task.id, { status: res.data.status });
+    } catch {
+      // Revert local state on failure
+      setProjectTasks((prev) =>
+        prev.map((t) => t.id === task.id ? { ...t, status: task.status } : t)
+      );
+    }
   };
 
   // ── Derived stats ──────────────────────────────────────────────────────────
-  const total = tasks.length;
-  const done  = tasks.filter((x) => x.status === 'DONE').length;
+  const total = projectTasks.length;
+  const done  = projectTasks.filter((x) => x.status === 'DONE').length;
   const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}>
 
       {/* Coloured project header */}
       <View style={[styles.header, { backgroundColor: project?.color ?? t.accent }]}>
         <View style={styles.orb} />
+
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={{ color: 'white', fontSize: 18 }}>‹</Text>
+          <ArrowLeft size={18} color="white" strokeWidth={2} />
         </TouchableOpacity>
-        <Text style={{ fontSize: 28, marginBottom: 4 }}>{project?.emoji ?? '📁'}</Text>
+
+        <Text style={{ fontSize: 28, marginBottom: 4 }}>
+          {project?.emoji ?? '📁'}
+        </Text>
         <Text style={styles.title}>{project?.name ?? 'Project'}</Text>
         <Text style={styles.count}>{total} task{total !== 1 ? 's' : ''}</Text>
+
         <View style={[styles.pb, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
           <View style={[styles.pbFill, { width: `${pct}%` as `${number}%` }]} />
         </View>
@@ -115,29 +159,38 @@ export default function ProjectDetail() {
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={load} tintColor={t.accent} />
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={load}
+            tintColor={project?.color ?? t.accent}
+          />
         }
       >
-        {tasks.length === 0 && !isLoading ? (
+        {isLoading ? (
+          <>{[1, 2, 3].map((i) => <TaskSkeleton key={i} />)}</>
+        ) : projectTasks.length === 0 ? (
           <View style={{ alignItems: 'center', paddingTop: 40 }}>
-            <Text style={{ fontSize: 40, marginBottom: 12 }}>✓</Text>
+            <Text style={{ fontSize: 40, marginBottom: 12 }}>📝</Text>
             <Text style={{ fontSize: 16, fontWeight: '700', color: t.textPrimary }}>
               No tasks yet
             </Text>
+            <Text style={{ fontSize: 13, color: t.textSecondary, marginTop: 4, textAlign: 'center' }}>
+              Tap + to add the first task to this project
+            </Text>
           </View>
         ) : (
-          tasks.map((task) => (
+          projectTasks.map((task) => (
             <TaskCard
               key={task.id}
               task={task}
               onToggle={() => handleToggle(task)}
-              // FIX: was `/(tabs)/tasks/${task.id}` — that route doesn't exist
               onPress={() => router.push(`/tasks/${task.id}`)}
             />
           ))
         )}
 
-        {project ? (
+        {/* Delete project button */}
+        {project && !isLoading ? (
           <TouchableOpacity
             onPress={handleDelete}
             style={[styles.deleteBtn, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}
@@ -149,7 +202,7 @@ export default function ProjectDetail() {
         ) : null}
       </ScrollView>
 
-      {/* FAB — FIX: was `/(tabs)/tasks/create` which doesn't exist */}
+      {/* FAB */}
       <TouchableOpacity
         style={[
           styles.fab,
@@ -167,8 +220,9 @@ export default function ProjectDetail() {
           },
         ]}
         onPress={() => router.push('/tasks/create')}
+        activeOpacity={0.85}
       >
-        <Text style={{ color: 'white', fontSize: 24 }}>+</Text>
+        <Plus size={24} color="white" strokeWidth={2.5} />
       </TouchableOpacity>
 
     </SafeAreaView>

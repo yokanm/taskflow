@@ -118,13 +118,11 @@ export const logout = async (_req: Request, res: Response) => {
     });
 
     return res.status(200).json({ // ✅ 200 not 204 — 204 cannot have a body
-      success: true,
       message: 'Logged out successfully',
     });
   } catch (error) {
     console.error('Logout error:', error);
     return res.status(500).json({
-      success: false,
       message: 'Something went wrong!',
     });
   }
