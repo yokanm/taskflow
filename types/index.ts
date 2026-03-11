@@ -1,11 +1,15 @@
-// ─── Enums ────────────────────────────────────────────────────────────────────
+// types/index.ts
 
 export type Priority = 'HIGH' | 'MEDIUM' | 'LOW';
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
 
-export type ThemeKey = 'default' | 'rose' | 'ocean' | 'forest' | 'sunset' | 'midnight';
-
-// ─── Models ───────────────────────────────────────────────────────────────────
+export type ThemeKey =
+  | 'default'
+  | 'rose'
+  | 'ocean'
+  | 'forest'
+  | 'sunset'
+  | 'midnight';
 
 export interface User {
   id: string;
@@ -24,6 +28,15 @@ export interface SubTask {
   taskId: string;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  color: string;
+  emoji?: string;
+  userId: string;
+  createdAt: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -39,39 +52,58 @@ export interface Task {
   updatedAt: string;
 }
 
-export interface Project {
-  id: string;
-  name: string;
-  color: string;
-  emoji?: string;
-  userId: string;
-  tasks: Task[];
-  createdAt: string;
-}
-
-// ─── API Response ─────────────────────────────────────────────────────────────
-
 export interface ApiResponse<T> {
   data: T;
   message: string;
 }
 
 export interface AuthResponse {
-  token: string;
+  message: string;
+  accessToken: string;
   user: User;
 }
 
-// ─── Theme ────────────────────────────────────────────────────────────────────
+//export interface AuthResponse {
+//     message: string;
+//     accessToken: string;
+//     user: User;
+// }
 
-export interface ThemeColors {
-  accent: string;
-  accentLight: string;
-  accentDark: string;
-  bg: string;
-  card: string;
-  elevated: string;
-  border: string;
-  textPrimary: string;
-  textSecondary: string;
-  textTertiary: string;
-}
+// export interface TaskListResponse {
+//     data: Task[];
+//     message: string;
+// }
+
+// export interface TaskResponse {
+//     data: Task;
+//     message?: string;
+// }
+
+// export interface ProjectListResponse {
+//     data: Project[];
+//     message: string;
+// }
+
+// export interface ProjectResponse {
+//     data: Project;
+//     message?: string;
+// }
+
+// export interface SubTaskResponse {
+//     data: SubTask;
+//     message?: string;
+// }
+
+// export interface UserResponse {
+//     user: User;
+//     message?: string;
+// }
+
+// export interface MessageResponse {
+//     message: string;
+// }
+
+// export interface RefreshResponse {
+//     message: string;
+//     accessToken: string;
+// }
