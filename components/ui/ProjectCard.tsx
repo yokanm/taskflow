@@ -1,14 +1,18 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useAppTheme } from '@/context/ThemeContext';
-import type { Project } from '@/types';
+import type { Project, Task } from '@/types';
 
-interface Props { project: Project; onPress?: () => void; }
+interface Props {
+  project: Project & { tasks?: Task[] };
+  onPress?: () => void;
+}
 
 export function ProjectCard({ project, onPress }: Props) {
   const t = useAppTheme();
-  const total = project.tasks.length;
-  const done = project.tasks.filter((x) => x.status === 'DONE').length;
+  // FIX: project.tasks is not on the Project type — guard against undefined
+  const total = project.tasks?.length ?? 0;
+  const done = project.tasks?.filter((x) => x.status === 'DONE').length ?? 0;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (

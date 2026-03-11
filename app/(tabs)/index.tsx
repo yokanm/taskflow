@@ -222,7 +222,7 @@ export default function Home() {
           <Avatar
             name={user?.name}
             color={user?.avatarColor}
-            imageUri={user?.profileImage}
+            // imageUri={user?.profileImage}
             size={42}
           />
         </TouchableOpacity>
@@ -387,12 +387,12 @@ export default function Home() {
 
             {Object.entries(projectTaskMap)
               .slice(0, 3)
-              .map(([projectId, { name, color, tasks: ptasks }]) => {
-                const pending = ptasks.filter((x) => x.status !== 'DONE');
-                const done = ptasks.filter((x) => x.status === 'DONE');
+              .map(([projectId, { name, color, tasks: project_tasks }]) => {
+                const pending = project_tasks.filter((x) => x.status !== 'DONE');
+                const done = project_tasks.filter((x) => x.status === 'DONE');
                 const pct2 =
-                  ptasks.length > 0
-                    ? Math.round((done.length / ptasks.length) * 100)
+                  project_tasks.length > 0
+                    ? Math.round((done.length / project_tasks.length) * 100)
                     : 0;
 
                 return (

@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
-  Platform,
+  
 } from 'react-native';
 import { useAppTheme } from '@/context/ThemeContext';
 import { Icon } from '@/components/ui/Icon';

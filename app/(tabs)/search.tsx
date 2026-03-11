@@ -3,35 +3,36 @@
  * @description Search screen — search tasks and projects in real-time.
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { TaskCard } from '@/components/ui/TaskCard';
+import { useAppTheme } from '@/context/ThemeContext';
+import { taskApi } from '@/services/api';
+import { useProjectStore } from '@/store/project.store';
+import { useTaskStore } from '@/store/task.store';
+import type { Project, Task, TaskStatus } from '@/types';
+import { useRouter } from 'expo-router';
 import {
-  View,
+  CheckSquare,
+  ChevronRight,
+  Clock,
+  FolderOpen,
+  Search,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Platform,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
-  ScrollView,
   TouchableOpacity,
-  StyleSheet,
-  Platform,
-  Animated,
-  ActivityIndicator,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useAppTheme } from '@/context/ThemeContext';
-import { useTaskStore } from '@/store/task.store';
-import { useProjectStore } from '@/store/project.store';
-import { TaskCard } from '@/components/ui/TaskCard';
-import { taskApi } from '@/services/api';
-import type { Task, Project } from '@/types';
-import {
-  Search,
-  X,
-  FolderOpen,
-  CheckSquare,
-  Clock,
-  ChevronRight,
-  SlidersHorizontal,
-} from 'lucide-react-native';
+
+type ProjectWithTasks = Project & { tasks?: { status: TaskStatus }[] };
 
 type FilterType = 'all' | 'tasks' | 'projects';
 type PriorityFilter = 'ALL' | 'HIGH' | 'MEDIUM' | 'LOW';
@@ -74,10 +75,10 @@ export default function SearchScreen() {
       })
     : [];
 
-  const filteredProjects: Project[] = q
-    ? projects.filter((p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.emoji?.toLowerCase().includes(q)
+  const filteredProjects: ProjectWithTasks[] = q
+    ? projects.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) || p.emoji?.toLowerCase().includes(q)
       )
     : [];
 
@@ -144,7 +145,11 @@ export default function SearchScreen() {
             },
           ]}
         >
-          <Search size={18} color={query ? t.accent : t.textTertiary} strokeWidth={2} />
+          <Search
+            size={18}
+            color={query ? t.accent : t.textTertiary}
+            strokeWidth={2}
+          />
           <TextInput
             ref={inputRef}
             value={query}
@@ -156,14 +161,17 @@ export default function SearchScreen() {
               styles.searchInput,
               {
                 color: t.textPrimary,
-                ...(Platform.OS === 'web' ? { outline: 'none' } as any : {}),
+                ...(Platform.OS === 'web' ? ({ outline: 'none' } as any) : {}),
               },
             ]}
             autoCorrect={false}
             returnKeyType="search"
           />
           {query.length > 0 && (
-            <TouchableOpacity onPress={handleClear} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={handleClear}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <View style={[styles.clearBtn, { backgroundColor: t.surface2 }]}>
                 <X size={12} color={t.textTertiary} strokeWidth={2.5} />
               </View>
@@ -216,8 +224,7 @@ export default function SearchScreen() {
                 style={[
                   styles.filterChip,
                   {
-                    backgroundColor:
-                      filter === f ? t.accent : t.surface2,
+                    backgroundColor: filter === f ? t.accent : t.surface2,
                     borderColor: filter === f ? t.accent : t.border,
                   },
                 ]}
@@ -237,7 +244,12 @@ export default function SearchScreen() {
           </View>
 
           {/* Priority filter */}
-          <Text style={[styles.filterLabel, { color: t.textTertiary, marginTop: 8 }]}>
+          <Text
+            style={[
+              styles.filterLabel,
+              { color: t.textTertiary, marginTop: 8 },
+            ]}
+          >
             Priority
           </Text>
           <View style={styles.filterRow}>
@@ -257,8 +269,7 @@ export default function SearchScreen() {
                     {
                       backgroundColor:
                         priorityFilter === p ? colors[p] + '20' : t.surface2,
-                      borderColor:
-                        priorityFilter === p ? colors[p] : t.border,
+                      borderColor: priorityFilter === p ? colors[p] : t.border,
                     },
                   ]}
                 >
@@ -266,11 +277,12 @@ export default function SearchScreen() {
                     style={{
                       fontSize: 12,
                       fontWeight: '600',
-                      color:
-                        priorityFilter === p ? colors[p] : t.textSecondary,
+                      color: priorityFilter === p ? colors[p] : t.textSecondary,
                     }}
                   >
-                    {p === 'ALL' ? 'All' : p.charAt(0) + p.slice(1).toLowerCase()}
+                    {p === 'ALL'
+                      ? 'All'
+                      : p.charAt(0) + p.slice(1).toLowerCase()}
                   </Text>
                 </TouchableOpacity>
               );
@@ -290,11 +302,19 @@ export default function SearchScreen() {
             {recentSearches.length > 0 ? (
               <>
                 <View style={styles.recentHeader}>
-                  <Text style={[styles.recentTitle, { color: t.textSecondary }]}>
+                  <Text
+                    style={[styles.recentTitle, { color: t.textSecondary }]}
+                  >
                     Recent Searches
                   </Text>
                   <TouchableOpacity onPress={() => setRecentSearches([])}>
-                    <Text style={{ color: t.accent, fontSize: 12, fontWeight: '600' }}>
+                    <Text
+                      style={{
+                        color: t.accent,
+                        fontSize: 12,
+                        fontWeight: '600',
+                      }}
+                    >
                       Clear
                     </Text>
                   </TouchableOpacity>
@@ -309,20 +329,23 @@ export default function SearchScreen() {
                     ]}
                   >
                     <Clock size={14} color={t.textTertiary} strokeWidth={2} />
-                    <Text style={{ flex: 1, fontSize: 14, color: t.textPrimary }}>
+                    <Text
+                      style={{ flex: 1, fontSize: 14, color: t.textPrimary }}
+                    >
                       {term}
                     </Text>
-                    <ChevronRight size={14} color={t.textTertiary} strokeWidth={2} />
+                    <ChevronRight
+                      size={14}
+                      color={t.textTertiary}
+                      strokeWidth={2}
+                    />
                   </TouchableOpacity>
                 ))}
               </>
             ) : (
               <View style={{ alignItems: 'center', paddingTop: 48 }}>
                 <View
-                  style={[
-                    styles.emptyIcon,
-                    { backgroundColor: t.accentLight },
-                  ]}
+                  style={[styles.emptyIcon, { backgroundColor: t.accentLight }]}
                 >
                   <Search size={28} color={t.accent} strokeWidth={1.5} />
                 </View>
@@ -360,7 +383,10 @@ export default function SearchScreen() {
                   {totalResults}
                 </Text>{' '}
                 result{totalResults !== 1 ? 's' : ''} for &quot;
-                <Text style={{ fontWeight: '600', color: t.accent }}>{query}</Text>&quot;
+                <Text style={{ fontWeight: '600', color: t.accent }}>
+                  {query}
+                </Text>
+                &quot;
               </Text>
             </View>
 
@@ -368,10 +394,7 @@ export default function SearchScreen() {
             {totalResults === 0 && (
               <View style={{ alignItems: 'center', paddingTop: 48 }}>
                 <View
-                  style={[
-                    styles.emptyIcon,
-                    { backgroundColor: t.surface2 },
-                  ]}
+                  style={[styles.emptyIcon, { backgroundColor: t.surface2 }]}
                 >
                   <Search size={28} color={t.textTertiary} strokeWidth={1.5} />
                 </View>
@@ -403,7 +426,12 @@ export default function SearchScreen() {
               <View style={{ marginBottom: 12 }}>
                 <View style={styles.resultSection}>
                   <CheckSquare size={15} color={t.accent} strokeWidth={2} />
-                  <Text style={[styles.resultSectionTitle, { color: t.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.resultSectionTitle,
+                      { color: t.textSecondary },
+                    ]}
+                  >
                     Tasks
                   </Text>
                   <View
@@ -440,7 +468,12 @@ export default function SearchScreen() {
               <View>
                 <View style={styles.resultSection}>
                   <FolderOpen size={15} color="#8B5CF6" strokeWidth={2} />
-                  <Text style={[styles.resultSectionTitle, { color: t.textSecondary }]}>
+                  <Text
+                    style={[
+                      styles.resultSectionTitle,
+                      { color: t.textSecondary },
+                    ]}
+                  >
                     Projects
                   </Text>
                   <View
@@ -460,7 +493,7 @@ export default function SearchScreen() {
                 {filteredProjects.map((project) => {
                   const projectTasks = project.tasks ?? [];
                   const done = projectTasks.filter(
-                    (x) => x.status === 'DONE'
+                    (x: { status: TaskStatus }) => x.status === 'DONE'
                   ).length;
                   return (
                     <TouchableOpacity
@@ -562,7 +595,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     padding: 0,
     margin: 0,
-    ...(Platform.OS === 'web' ? { outline: 'none' } as any : {}),
+    ...(Platform.OS === 'web' ? ({ outline: 'none' } as any) : {}),
   },
   clearBtn: {
     width: 20,

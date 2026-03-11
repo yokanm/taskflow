@@ -18,7 +18,7 @@ import { projectApi } from '@/services/api';
 import { ProjectCard } from '@/components/ui/ProjectCard';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import type { Project } from '@/types';
+
 
 const COLORS = ['#6C63FF', '#F43F5E', '#0EA5E9', '#22C55E', '#F59E0B', '#8B5CF6', '#EC4899'];
 const DEFAULT_COLOR = COLORS[0]!;
@@ -109,7 +109,7 @@ export default function Projects() {
               No Projects Yet
             </Text>
             <Text style={{ fontSize: 14, color: theme.textSecondary, textAlign: 'center', marginBottom: 24 }}>
-              Create your first project to organise your tasks
+              Create your first project to organize your tasks
             </Text>
             <Button label="+ Create Project" onPress={openModal} />
           </View>

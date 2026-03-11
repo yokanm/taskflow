@@ -24,7 +24,7 @@ import { authApi } from '@/services/api';
 import { registerSchema, getFieldErrors } from '@/services/validators';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import type { AuthUser } from '@/store/auth.store';
+import type { User } from '@/types';
 
 const PASSWORD_RULES = [
   { label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
@@ -78,7 +78,7 @@ export default function Register() {
         email: email.trim(),
         password,
       });
-      setAuth(response.user as unknown as AuthUser, response.accessToken);
+      setAuth(response.user as unknown as User, response.accessToken);
       router.replace('/(tabs)');
     } catch (err) {
       setErrors({

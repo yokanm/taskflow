@@ -19,11 +19,6 @@ interface Props {
   showProject?: boolean;
 }
 
-const STATUS_NEXT: Record<string, string> = {
-  TODO: 'IN_PROGRESS',
-  IN_PROGRESS: 'DONE',
-  DONE: 'TODO',
-};
 
 const STATUS_CONFIG = {
   TODO: {
@@ -60,11 +55,11 @@ export function TaskCard({ task, onToggle, onLongPress, onPress, showProject }: 
   const isOverdue =
     task.dueDate && new Date(task.dueDate) < new Date() && !isDone;
 
-  const priorityIconMap: Record<string, 'flag'> = {
-    HIGH: 'flag',
-    MEDIUM: 'flag',
-    LOW: 'flag',
-  };
+  // const priorityIconMap: Record<string, 'flag'> = {
+  //   HIGH: 'flag',
+  //   MEDIUM: 'flag',
+  //   LOW: 'flag',
+  // };
 
   return (
     <TouchableOpacity
