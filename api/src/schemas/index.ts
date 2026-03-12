@@ -30,7 +30,10 @@ export const createTaskSchema = z.object({
 
 export const updateTaskSchema = createTaskSchema
   .partial()
-  .extend({ status: z.enum(['TODO', 'IN_PROGRESS', 'DONE']).optional() });
+  .extend({
+    status: z.enum(['TODO', 'IN_PROGRESS', 'DONE']).optional(),
+    projectId: z.string().cuid().optional().nullable(),
+  });
 
 // ─── Projects ─────────────────────────────────────────────────────────────────
 

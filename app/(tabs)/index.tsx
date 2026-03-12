@@ -1,7 +1,12 @@
 /**
  * @file app/(tabs)/index.tsx
  * @description Home screen: Today's tasks, Tomorrow's tasks, Project tasks.
- * Uses Lucide icons throughout.
+ *
+ * FIXES:
+ * 1. Added null/undefined guard in all tasks.filter() callbacks — if a task
+ *    entry is somehow undefined (due to a bad API payload), it is skipped
+ *    rather than crashing with "Cannot read property 'dueDate' of undefined".
+ * 2. projectTaskMap accumulator also guards against undefined task entries.
  */
 
 import { ProgressRing } from '@/components/ui/ProgressRing';
@@ -14,7 +19,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useTaskStore } from '@/store/task.store';
 import type { Task } from '@/types';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   Platform,
   RefreshControl,
@@ -93,12 +98,7 @@ function SectionHeader({
         <Text style={[styles.sectionTitle, { color: t.textPrimary }]}>
           {title}
         </Text>
-        <View
-          style={[
-            styles.countBadge,
-            { backgroundColor: t.surface2 },
-          ]}
-        >
+        <View style={[styles.countBadge, { backgroundColor: t.surface2 }]}>
           <Text style={{ fontSize: 11, fontWeight: '700', color: t.textSecondary }}>
             {count}
           </Text>
@@ -121,7 +121,12 @@ function SectionHeader({
 function EmptySection({ message }: { message: string }) {
   const t = useAppTheme();
   return (
-    <View style={[styles.emptyCard, { backgroundColor: t.surface2, borderColor: t.border }]}>
+    <View
+      style={[
+        styles.emptyCard,
+        { backgroundColor: t.surface2, borderColor: t.border },
+      ]}
+    >
       <Text style={{ fontSize: 12, color: t.textTertiary }}>{message}</Text>
     </View>
   );
@@ -133,12 +138,8 @@ export default function Home() {
   const t = useAppTheme();
   const router = useRouter();
   const { user } = useAuthStore();
-  const { tasks, isLoading, setTasks, setLoading, toggleTask, updateTask } = useTaskStore();
-  const [expandedSections, setExpandedSections] = useState({
-    today: true,
-    tomorrow: true,
-    projects: true,
-  });
+  const { tasks, isLoading, setTasks, setLoading, toggleTask, updateTask } =
+    useTaskStore();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -146,44 +147,47 @@ export default function Home() {
       const result = await taskApi.list();
       setTasks(result.data);
     } catch {
-      // Silent fail
+      // Silent fail — keep current state on error
     } finally {
       setLoading(false);
     }
   }, [setTasks, setLoading]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  // ── Derived data ───────────────────────────────────────────────────────────
-  const todayTasks = tasks.filter((task) => {
-    if (!task.dueDate) return false;
+  // ── Derived data (FIX: guard against undefined task entries) ───────────────
+
+  const todayTasks = tasks.filter((task): task is Task => {
+    if (!task?.dueDate) return false;
     return isToday(new Date(task.dueDate));
   });
 
-  const tomorrowTasks = tasks.filter((task) => {
-    if (!task.dueDate) return false;
+  const tomorrowTasks = tasks.filter((task): task is Task => {
+    if (!task?.dueDate) return false;
     return isTomorrow(new Date(task.dueDate));
   });
 
   // Group tasks by project (only tasks with a project)
-  const projectTaskMap = tasks.reduce<Record<string, { name: string; color: string; tasks: Task[] }>>(
-    (acc, task) => {
-      if (task.project) {
-        const key = task.project.id;
-        if (!acc[key]) {
-          acc[key] = { name: task.project.name, color: task.project.color, tasks: [] };
-        }
-        acc[key]!.tasks.push(task);
-      }
-      return acc;
-    },
-    {}
-  );
+  const projectTaskMap = tasks.reduce<
+    Record<string, { name: string; color: string; tasks: Task[] }>
+  >((acc, task) => {
+    // FIX: guard against undefined task or task.project
+    if (!task?.project) return acc;
+    const key = task.project.id;
+    if (!acc[key]) {
+      acc[key] = { name: task.project.name, color: task.project.color, tasks: [] };
+    }
+    acc[key]!.tasks.push(task);
+    return acc;
+  }, {});
 
-  const doneCount = tasks.filter((tk) => tk.status === 'DONE').length;
-  const inProgressCount = tasks.filter((tk) => tk.status === 'IN_PROGRESS').length;
-  const todoCount = tasks.filter((tk) => tk.status === 'TODO').length;
-  const pct = tasks.length > 0 ? Math.round((doneCount / tasks.length) * 100) : 0;
+  const doneCount = tasks.filter((tk) => tk?.status === 'DONE').length;
+  const inProgressCount = tasks.filter((tk) => tk?.status === 'IN_PROGRESS').length;
+  const todoCount = tasks.filter((tk) => tk?.status === 'TODO').length;
+  const pct =
+    tasks.length > 0 ? Math.round((doneCount / tasks.length) * 100) : 0;
 
   const todayDate = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -192,29 +196,42 @@ export default function Home() {
   });
 
   const handleToggle = async (task: Task) => {
+    // Optimistic update
     toggleTask(task.id);
     try {
       const res = await taskApi.toggle(task.id);
+      // Reconcile with server's actual new status
       updateTask(task.id, { status: res.data.status });
     } catch {
-      toggleTask(task.id); // revert
+      // Revert optimistic update on failure
+      toggleTask(task.id);
     }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}>
-
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: t.border }]}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 12, fontWeight: '500', color: t.textTertiary }}>
+          <Text
+            style={{ fontSize: 12, fontWeight: '500', color: t.textTertiary }}
+          >
             {greeting()}
           </Text>
-          <Text style={{ fontSize: 20, fontWeight: '700', color: t.textPrimary, letterSpacing: -0.5 }}>
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: '700',
+              color: t.textPrimary,
+              letterSpacing: -0.5,
+            }}
+          >
             {user?.name ?? 'User'}
           </Text>
-          <Text style={{ fontSize: 11, color: t.textTertiary, marginTop: 1 }}>
+          <Text
+            style={{ fontSize: 11, color: t.textTertiary, marginTop: 1 }}
+          >
             {todayDate}
           </Text>
         </View>
@@ -222,7 +239,7 @@ export default function Home() {
           <Avatar
             name={user?.name}
             color={user?.avatarColor}
-            // imageUri={user?.profileImage}
+            imageUri={user?.profileImage}
             size={42}
           />
         </TouchableOpacity>
@@ -258,17 +275,32 @@ export default function Home() {
           ]}
         >
           <View style={styles.heroOrb} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <TrendingUp size={13} color="rgba(255,255,255,0.7)" strokeWidth={2} />
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              marginBottom: 8,
+            }}
+          >
+            <TrendingUp
+              size={13}
+              color="rgba(255,255,255,0.7)"
+              strokeWidth={2}
+            />
             <Text style={styles.heroSub}>OVERALL PROGRESS</Text>
           </View>
           <Text style={styles.heroTitle}>
             {tasks.length} task{tasks.length !== 1 ? 's' : ''} in total
           </Text>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <View
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}
+          >
             <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', gap: 16, marginBottom: 10 }}>
+              <View
+                style={{ flexDirection: 'row', gap: 16, marginBottom: 10 }}
+              >
                 {[
                   { num: todoCount, label: 'To Do' },
                   { num: inProgressCount, label: 'Active' },
@@ -288,7 +320,13 @@ export default function Home() {
                   ]}
                 />
               </View>
-              <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 5 }}>
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: 'rgba(255,255,255,0.6)',
+                  marginTop: 5,
+                }}
+              >
                 {pct}% completed
               </Text>
             </View>
@@ -299,9 +337,24 @@ export default function Home() {
         {/* Quick stats row */}
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
           {[
-            { icon: <Sun size={14} color={t.accent} strokeWidth={2} />, num: todayTasks.length, label: 'Due Today', color: t.accent },
-            { icon: <Clock size={14} color="#3B82F6" strokeWidth={2} />, num: inProgressCount, label: 'In Progress', color: '#3B82F6' },
-            { icon: <FolderOpen size={14} color="#22C55E" strokeWidth={2} />, num: Object.keys(projectTaskMap).length, label: 'Projects', color: '#22C55E' },
+            {
+              icon: <Sun size={14} color={t.accent} strokeWidth={2} />,
+              num: todayTasks.length,
+              label: 'Due Today',
+              color: t.accent,
+            },
+            {
+              icon: <Clock size={14} color="#3B82F6" strokeWidth={2} />,
+              num: inProgressCount,
+              label: 'In Progress',
+              color: '#3B82F6',
+            },
+            {
+              icon: <FolderOpen size={14} color="#22C55E" strokeWidth={2} />,
+              num: Object.keys(projectTaskMap).length,
+              label: 'Projects',
+              color: '#22C55E',
+            },
           ].map((s) => (
             <View
               key={s.label}
@@ -310,13 +363,29 @@ export default function Home() {
                 { backgroundColor: t.surface, borderColor: t.border },
               ]}
             >
-              <View style={[styles.statIcon, { backgroundColor: s.color + '15' }]}>
+              <View
+                style={[styles.statIcon, { backgroundColor: s.color + '15' }]}
+              >
                 {s.icon}
               </View>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: t.textPrimary, letterSpacing: -0.5 }}>
+              <Text
+                style={{
+                  fontSize: 20,
+                  fontWeight: '700',
+                  color: t.textPrimary,
+                  letterSpacing: -0.5,
+                }}
+              >
                 {s.num}
               </Text>
-              <Text style={{ fontSize: 10, color: t.textTertiary, textAlign: 'center', marginTop: 1 }}>
+              <Text
+                style={{
+                  fontSize: 10,
+                  color: t.textTertiary,
+                  textAlign: 'center',
+                  marginTop: 1,
+                }}
+              >
                 {s.label}
               </Text>
             </View>
@@ -333,7 +402,11 @@ export default function Home() {
         />
 
         {isLoading ? (
-          <>{[1, 2].map((i) => <TaskSkeleton key={i} />)}</>
+          <>
+            {[1, 2].map((i) => (
+              <TaskSkeleton key={i} />
+            ))}
+          </>
         ) : todayTasks.length === 0 ? (
           <EmptySection message="No tasks due today — enjoy your day! 🎉" />
         ) : (
@@ -388,8 +461,12 @@ export default function Home() {
             {Object.entries(projectTaskMap)
               .slice(0, 3)
               .map(([projectId, { name, color, tasks: project_tasks }]) => {
-                const pending = project_tasks.filter((x) => x.status !== 'DONE');
-                const done = project_tasks.filter((x) => x.status === 'DONE');
+                const pending = project_tasks.filter(
+                  (x) => x.status !== 'DONE',
+                );
+                const done = project_tasks.filter(
+                  (x) => x.status === 'DONE',
+                );
                 const pct2 =
                   project_tasks.length > 0
                     ? Math.round((done.length / project_tasks.length) * 100)
@@ -433,7 +510,12 @@ export default function Home() {
                       >
                         {name}
                       </Text>
-                      <View style={[styles.miniProgress, { backgroundColor: t.surface2 }]}>
+                      <View
+                        style={[
+                          styles.miniProgress,
+                          { backgroundColor: t.surface2 },
+                        ]}
+                      >
                         <View
                           style={[
                             styles.miniProgressFill,
@@ -446,14 +528,26 @@ export default function Home() {
                       </View>
                     </View>
                     <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: t.textPrimary }}>
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: '700',
+                          color: t.textPrimary,
+                        }}
+                      >
                         {pending.length}
                       </Text>
-                      <Text style={{ fontSize: 10, color: t.textTertiary }}>
+                      <Text
+                        style={{ fontSize: 10, color: t.textTertiary }}
+                      >
                         pending
                       </Text>
                     </View>
-                    <ChevronRight size={14} color={t.textTertiary} strokeWidth={2} />
+                    <ChevronRight
+                      size={14}
+                      color={t.textTertiary}
+                      strokeWidth={2}
+                    />
                   </TouchableOpacity>
                 );
               })}

@@ -19,6 +19,8 @@ export interface User {
   accentTheme: ThemeKey;
   darkMode: boolean;
   createdAt: string;
+  /** Optional profile image URI — used by Avatar component */
+  profileImage?: string | null;
 }
 
 export interface SubTask {
@@ -45,7 +47,7 @@ export interface Task {
   status: TaskStatus;
   dueDate?: string;
   userId: string;
-  projectId?: string;
+  projectId?: string | null;
   project?: Project;
   subTasks: SubTask[];
   createdAt: string;
@@ -62,48 +64,3 @@ export interface AuthResponse {
   accessToken: string;
   user: User;
 }
-
-//export interface AuthResponse {
-//     message: string;
-//     accessToken: string;
-//     user: User;
-// }
-
-// export interface TaskListResponse {
-//     data: Task[];
-//     message: string;
-// }
-
-// export interface TaskResponse {
-//     data: Task;
-//     message?: string;
-// }
-
-// export interface ProjectListResponse {
-//     data: Project[];
-//     message: string;
-// }
-
-// export interface ProjectResponse {
-//     data: Project;
-//     message?: string;
-// }
-
-// export interface SubTaskResponse {
-//     data: SubTask;
-//     message?: string;
-// }
-
-// export interface UserResponse {
-//     user: User;
-//     message?: string;
-// }
-
-// export interface MessageResponse {
-//     message: string;
-// }
-
-// export interface RefreshResponse {
-//     message: string;
-//     accessToken: string;
-// }
