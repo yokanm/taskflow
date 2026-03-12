@@ -95,11 +95,11 @@ function SectionHeader({
         >
           {icon}
         </View>
-        <Text style={[styles.sectionTitle, { color: t.textPrimary }]}>
+        <Text style={[styles.sectionTitle, {fontSize: 20, color: t.textPrimary }]}>
           {title}
         </Text>
         <View style={[styles.countBadge, { backgroundColor: t.surface2 }]}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: t.textSecondary }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: t.textSecondary }}>
             {count}
           </Text>
         </View>
@@ -127,7 +127,7 @@ function EmptySection({ message }: { message: string }) {
         { backgroundColor: t.surface2, borderColor: t.border },
       ]}
     >
-      <Text style={{ fontSize: 12, color: t.textTertiary }}>{message}</Text>
+      <Text style={{ fontSize: 16, color: t.textTertiary }}>{message}</Text>
     </View>
   );
 }
@@ -215,13 +215,13 @@ export default function Home() {
       <View style={[styles.header, { borderBottomColor: t.border }]}>
         <View style={{ flex: 1 }}>
           <Text
-            style={{ fontSize: 12, fontWeight: '500', color: t.textTertiary }}
+            style={{ fontSize: 20, fontWeight: '500', color: t.textSecondary }}
           >
             {greeting()}
           </Text>
           <Text
             style={{
-              fontSize: 20,
+              fontSize: 24,
               fontWeight: '700',
               color: t.textPrimary,
               letterSpacing: -0.5,
@@ -230,7 +230,7 @@ export default function Home() {
             {user?.name ?? 'User'}
           </Text>
           <Text
-            style={{ fontSize: 11, color: t.textTertiary, marginTop: 1 }}
+            style={{ fontSize: 16, color: t.textSecondary, marginTop: 1 }}
           >
             {todayDate}
           </Text>
@@ -394,7 +394,7 @@ export default function Home() {
 
         {/* ── Today's Tasks ─────────────────────────────────────────────── */}
         <SectionHeader
-          icon={<Sun size={14} color={t.accent} strokeWidth={2} />}
+          icon={<Sun size={16} color={t.accent} strokeWidth={2} />}
           title="Today"
           count={todayTasks.length}
           onSeeAll={() => router.push('/(tabs)/tasks')}
